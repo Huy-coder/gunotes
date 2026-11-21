@@ -129,7 +129,7 @@ export default function NoteStudioPage() {
 
   // Highlight UX state
   const [brushMode, setBrushMode] = useState(false);
-  const [brushColor, setBrushColor] = useState<HighlightColor | "cloze">("y");
+  const [brushColor, setBrushColor] = useState<HighlightColor | "cloze" | "clear">("y");
   const [selectionPopup, setSelectionPopup] =
     useState<SelectionPopupState | null>(null);
 
@@ -166,6 +166,111 @@ export default function NoteStudioPage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [toggleBlurMode]);
+
+  const applyHighlightUpdate = (
+    targetNoteId: string,
+    block: CornellBlock,
+    selectedText: string,
+    mode: HighlightColor | "cloze" | "clear"
+  ) => {
+    const updated = applyTextHighlight(block.content, selectedText, mode);
+    if (updated === block.content) {
+      showToast("Hãy chọn cụm từ nằm liền mạch trong khối để tô màu.");
+      return;
+    }
+    updateBlock(targetNoteId, block.id, { content: updated });
+    showToast(
+      mode === "clear"
+        ? "Đã xóa tô màu"
+        : mode === "cloze"
+        ? "Đã tạo ô che (Cloze)"
+        : "Đã tô bút nhớ!"
+    );
+  };
+
+  // Document-level selection capture so mouseup/touchend outside card bounds never drops highlights
+  useEffect(() => {
+    let timer: number | null = null;
+
+    const onSelectionFinish = (ev: Event) => {
+      const targetEl = ev.target as HTMLElement | null;
+      if (targetEl?.closest?.('[data-highlight-ui="true"]')) return;
+
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (!note || blurMode) return;
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+          setSelectionPopup(null);
+          return;
+        }
+        const text = sel.toString().trim();
+        if (text.length < 1) {
+          setSelectionPopup(null);
+          return;
+        }
+
+        const range = sel.getRangeAt(0);
+        const startNode = range.commonAncestorContainer;
+        const startEl =
+          startNode.nodeType === Node.TEXT_NODE
+            ? startNode.parentElement
+            : (startNode as HTMLElement | null);
+        let blockEl = startEl?.closest?.("[data-block-id]") as HTMLElement | null;
+
+        if (!blockEl && sel.anchorNode) {
+          const anchorEl =
+            sel.anchorNode.nodeType === Node.TEXT_NODE
+              ? sel.anchorNode.parentElement
+              : (sel.anchorNode as HTMLElement | null);
+          blockEl = anchorEl?.closest?.("[data-block-id]") as HTMLElement | null;
+        }
+
+        const blockId = blockEl?.getAttribute("data-block-id");
+        if (!blockId) {
+          setSelectionPopup(null);
+          return;
+        }
+
+        const matchedBlock = note.blocks.find((b) => b.id === blockId);
+        if (
+          !matchedBlock ||
+          matchedBlock.type === "diagram" ||
+          editingBlockId === matchedBlock.id
+        ) {
+          return;
+        }
+
+        if (brushMode) {
+          applyHighlightUpdate(note.id, matchedBlock, text, brushColor);
+          window.getSelection()?.removeAllRanges();
+          setSelectionPopup(null);
+          return;
+        }
+
+        const rect = range.getBoundingClientRect();
+        const clampedX = Math.max(
+          150,
+          Math.min(window.innerWidth - 150, rect.left + rect.width / 2)
+        );
+        const clampedY = Math.max(76, rect.top - 10);
+        setSelectionPopup({
+          blockId: matchedBlock.id,
+          text,
+          x: clampedX,
+          y: clampedY,
+        });
+      }, 16);
+    };
+
+    document.addEventListener("mouseup", onSelectionFinish);
+    document.addEventListener("touchend", onSelectionFinish);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      document.removeEventListener("mouseup", onSelectionFinish);
+      document.removeEventListener("touchend", onSelectionFinish);
+    };
+  }, [note, blurMode, editingBlockId, brushMode, brushColor, updateBlock, showToast]);
 
   if (!note || !binder) {
     return (
@@ -271,51 +376,9 @@ export default function NoteStudioPage() {
     selectedText: string,
     mode: HighlightColor | "cloze" | "clear"
   ) => {
-    const updated = applyTextHighlight(block.content, selectedText, mode);
-    if (updated === block.content) {
-      showToast("Hãy chọn cụm từ nằm liền mạch trong khối để tô màu.");
-    } else {
-      updateBlock(note.id, block.id, { content: updated });
-      showToast(
-        mode === "clear"
-          ? "Đã xóa tô màu"
-          : mode === "cloze"
-          ? "Đã tạo ô che (Cloze)"
-          : "Đã tô bút nhớ!"
-      );
-    }
+    applyHighlightUpdate(note.id, block, selectedText, mode);
     window.getSelection()?.removeAllRanges();
     setSelectionPopup(null);
-  };
-
-  const handleTextSelectionInBlock = (block: CornellBlock) => {
-    if (blurMode || editingBlockId === block.id) return;
-    const sel = window.getSelection();
-    const text = sel?.toString().trim() ?? "";
-    if (text.length < 2) {
-      setSelectionPopup(null);
-      return;
-    }
-
-    if (brushMode) {
-      applyHighlightAction(block, text, brushColor);
-      return;
-    }
-
-    if (sel && sel.rangeCount > 0) {
-      const rect = sel.getRangeAt(0).getBoundingClientRect();
-      const clampedX = Math.max(
-        150,
-        Math.min(window.innerWidth - 150, rect.left + rect.width / 2)
-      );
-      const clampedY = Math.max(76, rect.top - 10);
-      setSelectionPopup({
-        blockId: block.id,
-        text,
-        x: clampedX,
-        y: clampedY,
-      });
-    }
   };
 
   const handleTextareaKeyDown = (
@@ -411,11 +474,10 @@ export default function NoteStudioPage() {
 
     return (
       <div
+        data-block-id={block.id}
         onClick={() => {
           if (shouldBlur) toggleRevealBlock(block.id);
         }}
-        onMouseUp={() => handleTextSelectionInBlock(block)}
-        onTouchEnd={() => handleTextSelectionInBlock(block)}
         className={`relative rounded-xl border transition ${
           options?.compact ? "p-3" : "p-3.5 sm:p-4"
         } ${shouldBlur ? "cursor-pointer" : ""} ${
@@ -528,6 +590,16 @@ export default function NoteStudioPage() {
               autoFocus
               value={block.content}
               onKeyDown={(e) => handleTextareaKeyDown(e, block)}
+              onMouseUp={(e) => {
+                if (!brushMode) return;
+                const el = e.currentTarget;
+                const start = el.selectionStart;
+                const end = el.selectionEnd;
+                if (start === end) return;
+                const selected = block.content.slice(start, end);
+                if (!selected.trim()) return;
+                applyHighlightUpdate(note.id, block, selected, brushColor);
+              }}
               onChange={(e) =>
                 updateBlock(note.id, block.id, {
                   content: e.target.value,
@@ -1568,6 +1640,7 @@ export default function NoteStudioPage() {
           {/* DESKTOP Floating Selection Bubble Menu */}
           {selectionPopup && selectedBlock && !brushMode && (
             <div
+              data-highlight-ui="true"
               className="no-print fixed z-40 hidden -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 shadow-xl sm:flex"
               style={{
                 left: selectionPopup.x,
@@ -1643,7 +1716,10 @@ export default function NoteStudioPage() {
 
           {/* MOBILE Selection Action Dock (sits cleanly above bottom pill bar so OS Copy menu doesn't block) */}
           {selectionPopup && selectedBlock && !brushMode && (
-            <div className="no-print fixed right-3 bottom-[70px] left-3 z-40 flex items-center justify-between gap-1.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-3 py-2 shadow-xl sm:hidden">
+            <div
+              data-highlight-ui="true"
+              className="no-print fixed right-3 bottom-[70px] left-3 z-40 flex items-center justify-between gap-1.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-3 py-2 shadow-xl sm:hidden"
+            >
               <div className="flex items-center gap-1.5">
                 {HIGHLIGHT_COLORS.map((c) => (
                   <button
@@ -1708,12 +1784,15 @@ export default function NoteStudioPage() {
 
           {/* Highlighter Brush Mode Palette Bar */}
           {brushMode && (
-            <div className="no-print pointer-events-none fixed right-0 bottom-[66px] left-0 z-30 flex justify-center px-3 lg:left-[232px]">
+            <div
+              data-highlight-ui="true"
+              className="no-print pointer-events-none fixed right-0 bottom-[66px] left-0 z-30 flex justify-center px-3 lg:left-[232px]"
+            >
               <div className="paper-shadow pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)]/98 px-3.5 py-2 backdrop-blur-md">
                 <span className="font-mono text-[10px] font-semibold text-[var(--ink-muted)] uppercase">
                   Bút nhớ đang bật:
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                   {HIGHLIGHT_COLORS.map((c) => (
                     <button
                       key={c.id}
@@ -1740,10 +1819,30 @@ export default function NoteStudioPage() {
                   >
                     Che Cloze
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setBrushColor("clear")}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-semibold ${
+                      brushColor === "clear"
+                        ? "border-[var(--ink-primary)] bg-[var(--sem-trap-bg)] text-[var(--ink-primary)]"
+                        : "border-[var(--border-hairline)] bg-[var(--bg-paper)] text-[var(--ink-muted)]"
+                    }`}
+                  >
+                    <Eraser className="h-3 w-3" />
+                    <span>Xóa màu</span>
+                  </button>
                 </div>
                 <span className="hidden font-mono text-[10px] text-[var(--ink-muted)] sm:inline">
                   • Bôi đen chữ bất kỳ để tô ngay
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setBrushMode(false)}
+                  title="Tắt Bút nhớ"
+                  className="rounded-full p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           )}
@@ -1888,12 +1987,18 @@ export default function NoteStudioPage() {
               {/* Highlighter Brush Mode Toggle */}
               <button
                 type="button"
+                data-highlight-ui="true"
                 onClick={() => {
-                  setBrushMode((v) => !v);
+                  const next = !brushMode;
+                  setBrushMode(next);
                   setSelectionPopup(null);
                   setEditingBlockId(null);
                   setDiagramPickerOpen(false);
                   setSlashOpen(false);
+                  if (next) {
+                    if (blurMode) toggleBlurMode();
+                    showToast("Đã bật Bút nhớ — Bôi đen chữ để tô màu ngay!");
+                  }
                 }}
                 title="Chế độ Bút nhớ (tô màu trực tiếp)"
                 className={`flex items-center gap-1 rounded-full border px-2 py-1.5 text-xs font-medium transition sm:px-2.5 ${
