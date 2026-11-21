@@ -1,0 +1,400 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Lora", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root,
+[data-theme="minimal-paper"] {
+  --bg-desk: #f4f1ea;
+  --bg-paper: #faf8f3;
+  --bg-elevated: #ffffff;
+  --ink-primary: #1f1e1b;
+  --ink-muted: #5f5c53;
+  --border-hairline: #e6e1d6;
+  --grid-line: rgba(31, 30, 27, 0.085);
+  --accent-primary: #1f1e1b;
+  --accent-primary-fg: #faf8f3;
+  --accent-ring: #5f8d6b;
+
+  /* Semantic Muted Stationery Highlighters */
+  --sem-def-bg: #dce8f2;
+  --sem-def-border: #5b8fb9;
+  --sem-formula-bg: #eae4f2;
+  --sem-formula-border: #8b72be;
+  --sem-ex-bg: #e2ece4;
+  --sem-ex-border: #5f8d6b;
+  --sem-trap-bg: #f6e2df;
+  --sem-trap-border: #c96458;
+  --sem-hl-bg: #fbf0c4;
+  --hl-yellow: #fbf0c4;
+  --hl-blue: #cfe3f4;
+  --hl-pink: #f5d4ce;
+  --hl-green: #d3e8d7;
+
+  /* Binder Cover Tones */
+  --binder-blue-bg: #dce8f2;
+  --binder-blue-border: #a7c5de;
+  --binder-sage-bg: #e2ece4;
+  --binder-sage-border: #afc7b4;
+  --binder-sand-bg: #efe6d5;
+  --binder-sand-border: #d2c1a3;
+  --binder-lavender-bg: #eae4f2;
+  --binder-lavender-border: #c4b5dd;
+  --binder-terracotta-bg: #f6e2df;
+  --binder-terracotta-border: #dfb3ac;
+
+  --sticker-outline: #ffffff;
+  --paper-shadow-color: rgba(31, 30, 27, 0.06);
+}
+
+[data-theme="cyber-kit"] {
+  --bg-desk: #0b0e14;
+  --bg-paper: #121722;
+  --bg-elevated: #192130;
+  --ink-primary: #eef2f7;
+  --ink-muted: #9aa6ba;
+  --border-hairline: #283348;
+  --grid-line: rgba(114, 224, 255, 0.12);
+  --accent-primary: #38bdf8;
+  --accent-primary-fg: #09111a;
+  --accent-ring: #38bdf8;
+
+  --sem-def-bg: rgba(56, 189, 248, 0.13);
+  --sem-def-border: #38bdf8;
+  --sem-formula-bg: rgba(167, 139, 250, 0.14);
+  --sem-formula-border: #a78bfa;
+  --sem-ex-bg: rgba(52, 211, 153, 0.13);
+  --sem-ex-border: #34d399;
+  --sem-trap-bg: rgba(251, 113, 133, 0.14);
+  --sem-trap-border: #fb7185;
+  --sem-hl-bg: rgba(250, 204, 21, 0.25);
+  --hl-yellow: rgba(250, 204, 21, 0.28);
+  --hl-blue: rgba(56, 189, 248, 0.26);
+  --hl-pink: rgba(251, 113, 133, 0.28);
+  --hl-green: rgba(52, 211, 153, 0.25);
+
+  --binder-blue-bg: #152233;
+  --binder-blue-border: #2c4b70;
+  --binder-sage-bg: #132623;
+  --binder-sage-border: #255249;
+  --binder-sand-bg: #262019;
+  --binder-sand-border: #524331;
+  --binder-lavender-bg: #1e1933;
+  --binder-lavender-border: #443778;
+  --binder-terracotta-bg: #2b181f;
+  --binder-terracotta-border: #663143;
+
+  --sticker-outline: #eef2f7;
+  --paper-shadow-color: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="blueprint"] {
+  --bg-desk: #132238;
+  --bg-paper: #182b47;
+  --bg-elevated: #1f3657;
+  --ink-primary: #f1f6fd;
+  --ink-muted: #abc0db;
+  --border-hairline: #2f4e77;
+  --grid-line: rgba(171, 205, 255, 0.14);
+  --accent-primary: #f5f8ff;
+  --accent-primary-fg: #132238;
+  --accent-ring: #7dd3fc;
+
+  --sem-def-bg: rgba(125, 211, 252, 0.15);
+  --sem-def-border: #7dd3fc;
+  --sem-formula-bg: rgba(196, 181, 253, 0.16);
+  --sem-formula-border: #c4b5fd;
+  --sem-ex-bg: rgba(134, 239, 172, 0.14);
+  --sem-ex-border: #86efac;
+  --sem-trap-bg: rgba(253, 164, 175, 0.16);
+  --sem-trap-border: #fda4af;
+  --sem-hl-bg: rgba(253, 224, 71, 0.26);
+  --hl-yellow: rgba(253, 224, 71, 0.26);
+  --hl-blue: rgba(125, 211, 252, 0.26);
+  --hl-pink: rgba(253, 164, 175, 0.26);
+  --hl-green: rgba(134, 239, 172, 0.24);
+
+  --binder-blue-bg: #1c3556;
+  --binder-blue-border: #3d6aa3;
+  --binder-sage-bg: #19383c;
+  --binder-sage-border: #367178;
+  --binder-sand-bg: #2c3547;
+  --binder-sand-border: #5a6b8a;
+  --binder-lavender-bg: #252f59;
+  --binder-lavender-border: #4e61ab;
+  --binder-terracotta-bg: #36293d;
+  --binder-terracotta-border: #784f73;
+
+  --sticker-outline: #f1f6fd;
+  --paper-shadow-color: rgba(6, 14, 26, 0.45);
+}
+
+[data-theme="cozy-lofi"] {
+  --bg-desk: #ebe2d3;
+  --bg-paper: #f6f0e4;
+  --bg-elevated: #fdfaf3;
+  --ink-primary: #2c221e;
+  --ink-muted: #6e5f56;
+  --border-hairline: #ddd1be;
+  --grid-line: rgba(44, 34, 30, 0.08);
+  --accent-primary: #4a352b;
+  --accent-primary-fg: #fdfaf3;
+  --accent-ring: #8b6f5c;
+
+  --sem-def-bg: #dce5e8;
+  --sem-def-border: #688b98;
+  --sem-formula-bg: #eadfe8;
+  --sem-formula-border: #967390;
+  --sem-ex-bg: #e1e8da;
+  --sem-ex-border: #6e8a5c;
+  --sem-trap-bg: #f4ded6;
+  --sem-trap-border: #bf6b54;
+  --sem-hl-bg: #f6e6ae;
+  --hl-yellow: #f6e6ae;
+  --hl-blue: #d2e0e4;
+  --hl-pink: #efd5cd;
+  --hl-green: #d8e3ce;
+
+  --binder-blue-bg: #dce5e8;
+  --binder-blue-border: #afc4cb;
+  --binder-sage-bg: #e1e8da;
+  --binder-sage-border: #b6c5a7;
+  --binder-sand-bg: #e8dcc8;
+  --binder-sand-border: #c8b391;
+  --binder-lavender-bg: #eadfe8;
+  --binder-lavender-border: #c7b1c3;
+  --binder-terracotta-bg: #f4ded6;
+  --binder-terracotta-border: #d8ada0;
+
+  --sticker-outline: #fdfaf3;
+  --paper-shadow-color: rgba(44, 34, 30, 0.07);
+}
+
+html,
+body {
+  background-color: var(--bg-desk);
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tactile Paper Surface Textures */
+.paper-dot {
+  background-color: var(--bg-paper);
+  background-image: radial-gradient(var(--grid-line) 1.25px, transparent 1.25px);
+  background-size: 22px 22px;
+}
+
+.paper-grid {
+  background-color: var(--bg-paper);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.paper-lined {
+  background-color: var(--bg-paper);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 27px,
+    var(--grid-line) 27px,
+    var(--grid-line) 28px
+  );
+}
+
+.paper-plain {
+  background-color: var(--bg-paper);
+}
+
+.desk-dot {
+  background-color: var(--bg-desk);
+  background-image: radial-gradient(var(--grid-line) 1.1px, transparent 1.1px);
+  background-size: 24px 24px;
+}
+
+/* Soft Layered Paper Elevation */
+.paper-shadow {
+  box-shadow:
+    0 1px 2px var(--paper-shadow-color),
+    0 10px 30px -12px var(--paper-shadow-color);
+}
+
+/* Die-cut Sticker Aesthetic */
+.die-cut-sticker {
+  filter: drop-shadow(0 2px 3px var(--paper-shadow-color));
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.die-cut-sticker:hover {
+  transform: scale(1.06) rotate(-2deg);
+}
+
+/* Active Recall Blur Mask */
+.blur-recall-mask {
+  filter: blur(7px);
+  user-select: none;
+  transition: filter 220ms ease, opacity 220ms ease;
+}
+
+.blur-recall-revealed {
+  filter: none;
+  transition: filter 220ms ease;
+}
+
+/* Organic Stationery Highlighter Marker Stroke */
+.marker-stroke {
+  background: linear-gradient(
+    104deg,
+    transparent 0.8%,
+    var(--marker-color, var(--hl-yellow)) 2.2%,
+    var(--marker-color, var(--hl-yellow)) 96.5%,
+    transparent 98.5%
+  );
+  border-radius: 4px 7px 5px 6px;
+  padding: 0.04em 0.3em;
+  color: var(--ink-primary);
+  font-weight: 500;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Inline Cloze Pill */
+.cloze-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  border: 1px dashed var(--ink-muted);
+  background-color: var(--bg-elevated);
+  padding: 0.02em 0.4em;
+  font-weight: 600;
+  color: var(--ink-primary);
+  transition: all 180ms ease;
+}
+
+.cloze-pill-hidden {
+  border-style: solid;
+  border-color: var(--border-hairline);
+  background-color: var(--bg-desk);
+  color: transparent;
+  text-shadow: 0 0 8px var(--ink-muted);
+  user-select: none;
+}
+
+/* KaTeX Overflow & Rhythm */
+.katex-display {
+  margin: 0.45rem 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+.katex {
+  font-size: 1.03em;
+}
+
+/* React Flow Interactive Graph Theme Overrides */
+.react-flow {
+  background-color: var(--bg-paper);
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+}
+
+.react-flow__controls {
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px var(--paper-shadow-color),
+    0 8px 20px -10px var(--paper-shadow-color);
+  background-color: var(--bg-elevated);
+}
+
+.react-flow__controls-button {
+  background-color: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-hairline);
+  color: var(--ink-primary);
+  fill: var(--ink-primary);
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--bg-desk);
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.react-flow__minimap {
+  background-color: var(--bg-paper);
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px -4px var(--paper-shadow-color);
+}
+
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  background-color: var(--bg-elevated);
+  border: 1.5px solid var(--ink-muted);
+  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.25);
+  background-color: var(--accent-primary);
+  border-color: var(--ink-primary);
+}
+
+.react-flow__edge-textbg {
+  fill: var(--bg-elevated);
+}
+
+.react-flow__edge-text {
+  fill: var(--ink-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-hairline);
+  border-radius: 9999px;
+}
+
+/* Print / PDF Export Mode */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #faf8f3 !important;
+    color: #1f1e1b !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: 1px solid #d5cfc2 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  .blur-recall-mask {
+    filter: none !important;
+  }
+}
