@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -28,6 +28,7 @@ import {
   Sparkles,
   Timer,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { BlurtingModal } from "@/components/editor/BlurtingModal";
@@ -69,6 +70,11 @@ interface SelectionPopupState {
   text: string;
   x: number;
   y: number;
+}
+
+interface HighlightUndoEntry {
+  blockId: string;
+  prevContent: string;
 }
 
 function formatTimer(sec: number) {
@@ -132,6 +138,9 @@ export default function NoteStudioPage() {
   const [brushColor, setBrushColor] = useState<HighlightColor | "cloze" | "clear">("y");
   const [selectionPopup, setSelectionPopup] =
     useState<SelectionPopupState | null>(null);
+  const [highlightHistory, setHighlightHistory] = useState<
+    HighlightUndoEntry[]
+  >([]);
 
   // Visual Formula Composer state
   const [formulaModal, setFormulaModal] = useState<{
@@ -143,7 +152,19 @@ export default function NoteStudioPage() {
   const binderNotes = notes.filter((n) => n.binderId === binderId);
   const note = notes.find((n) => n.id === noteId);
 
-  // Keyboard shortcuts ('R' for Blur Recall, '/' for Slash Menu, 'Esc' to dismiss)
+  useEffect(() => {
+    setHighlightHistory([]);
+  }, [noteId]);
+
+  const handleUndoHighlight = useCallback(() => {
+    if (!note || highlightHistory.length === 0) return;
+    const last = highlightHistory[highlightHistory.length - 1];
+    setHighlightHistory((prev) => prev.slice(0, -1));
+    updateBlock(note.id, last.blockId, { content: last.prevContent });
+    showToast("Đã hoàn tác thao tác tô màu!");
+  }, [note, highlightHistory, updateBlock, showToast]);
+
+  // Keyboard shortcuts ('R' for Blur Recall, '/' for Slash Menu, 'Ctrl/Cmd+Z' highlight undo, 'Esc' to dismiss)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -155,6 +176,13 @@ export default function NoteStudioPage() {
       }
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        if (highlightHistory.length > 0) {
+          e.preventDefault();
+          handleUndoHighlight();
+        }
+        return;
+      }
       if (e.key.toLowerCase() === "r" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         toggleBlurMode();
@@ -165,7 +193,7 @@ export default function NoteStudioPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [toggleBlurMode]);
+  }, [toggleBlurMode, highlightHistory.length, handleUndoHighlight]);
 
   const applyHighlightUpdate = (
     targetNoteId: string,
@@ -178,6 +206,10 @@ export default function NoteStudioPage() {
       showToast("Hãy chọn cụm từ nằm liền mạch trong khối để tô màu.");
       return;
     }
+    setHighlightHistory((prev) => [
+      ...prev.slice(-29),
+      { blockId: block.id, prevContent: block.content },
+    ]);
     updateBlock(targetNoteId, block.id, { content: updated });
     showToast(
       mode === "clear"
@@ -400,6 +432,10 @@ export default function NoteStudioPage() {
       key === "h" ? `==y:${selected}==` : `{{${selected}}}`;
     const next =
       block.content.slice(0, start) + wrapped + block.content.slice(end);
+    setHighlightHistory((prev) => [
+      ...prev.slice(-29),
+      { blockId: block.id, prevContent: block.content },
+    ]);
     updateBlock(note.id, block.id, { content: next });
     showToast(key === "h" ? "Đã tô highlight (Ctrl+H)" : "Đã tạo Cloze");
   };
@@ -1831,6 +1867,21 @@ export default function NoteStudioPage() {
                     <Eraser className="h-3 w-3" />
                     <span>Xóa màu</span>
                   </button>
+                  <button
+                    type="button"
+                    disabled={highlightHistory.length === 0}
+                    onClick={handleUndoHighlight}
+                    title="Hoàn tác thao tác tô vừa rồi (Ctrl/Cmd+Z)"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-paper)] px-2.5 py-0.5 font-mono text-[10px] font-semibold text-[var(--ink-primary)] transition hover:border-[var(--ink-primary)] disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Undo2 className="h-3 w-3" />
+                    <span>Hoàn tác</span>
+                    {highlightHistory.length > 0 && (
+                      <span className="rounded-full bg-[var(--bg-desk)] px-1 text-[9px]">
+                        {highlightHistory.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
                 <span className="hidden font-mono text-[10px] text-[var(--ink-muted)] sm:inline">
                   • Bôi đen chữ bất kỳ để tô ngay
@@ -2010,6 +2061,21 @@ export default function NoteStudioPage() {
                 <Highlighter className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Bút nhớ</span>
               </button>
+
+              {highlightHistory.length > 0 && (
+                <button
+                  type="button"
+                  data-highlight-ui="true"
+                  onClick={handleUndoHighlight}
+                  title="Hoàn tác tô màu (Ctrl/Cmd+Z)"
+                  className="flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-paper)] px-2 py-1.5 text-xs font-medium text-[var(--ink-primary)] transition hover:border-[var(--ink-primary)]"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  <span className="font-mono text-[10px]">
+                    {highlightHistory.length}
+                  </span>
+                </button>
+              )}
 
               {/* Visual Diagram Trigger ("Sơ đồ") */}
               <button
