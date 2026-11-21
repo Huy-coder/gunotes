@@ -10,6 +10,7 @@ import {
   Settings,
   Timer,
 } from "lucide-react";
+import { APP_VERSION_LABEL } from "@/lib/app-version";
 import { useAppStore } from "@/store/useAppStore";
 
 function formatClock(sec: number) {
@@ -89,7 +90,7 @@ export function AppShell({
               <span>GuNotes.</span>
             </Link>
             <span className="rounded-full border border-[var(--border-hairline)] bg-[var(--bg-paper)] px-2 py-0.5 font-mono text-[10px] text-[var(--ink-muted)]">
-              v1.0
+              {APP_VERSION_LABEL}
             </span>
           </div>
 

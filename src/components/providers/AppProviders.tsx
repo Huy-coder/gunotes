@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { AmbientAudioEngine } from "@/components/audio/AmbientAudioEngine";
 import { CommandPalette } from "@/components/overlays/CommandPalette";
 import { CustomizeDrawer } from "@/components/overlays/CustomizeDrawer";
@@ -18,6 +18,8 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const toastMessage = useAppStore((s) => s.toastMessage);
   const clearToast = useAppStore((s) => s.clearToast);
 
+  const hydratedUserRef = useRef<string | null>(null);
+
   // Hydrate Zustand locally first, then bind Supabase Auth session + Cloud Sync
   useEffect(() => {
     useAppStore.persist.rehydrate();
@@ -27,45 +29,61 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
     let active = true;
 
+    const getFullName = (u: { user_metadata?: unknown }) => {
+      const meta = u.user_metadata as Record<string, unknown> | undefined;
+      return typeof meta?.full_name === "string"
+        ? meta.full_name
+        : typeof meta?.name === "string"
+        ? meta.name
+        : undefined;
+    };
+
+    const syncSessionUser = (
+      u: { id: string; email?: string; user_metadata?: unknown } | undefined,
+      force = false
+    ) => {
+      if (!active || !u) return;
+      if (!force && hydratedUserRef.current === u.id) return;
+      hydratedUserRef.current = u.id;
+      void hydrateFromSupabase(u.id, u.email ?? "", getFullName(u));
+    };
+
     supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      const u = data.session?.user;
-      if (u) {
-        const meta = u.user_metadata as Record<string, unknown> | undefined;
-        const fullName =
-          typeof meta?.full_name === "string"
-            ? meta.full_name
-            : typeof meta?.name === "string"
-            ? meta.name
-            : undefined;
-        void hydrateFromSupabase(u.id, u.email ?? "", fullName);
-      }
+      syncSessionUser(data.session?.user, false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === "SIGNED_OUT") {
+        hydratedUserRef.current = null;
         clearSupabaseSession();
         return;
       }
+      if (event === "USER_UPDATED") {
+        syncSessionUser(session?.user, true);
+        return;
+      }
       if (
-        (event === "SIGNED_IN" || event === "USER_UPDATED") &&
-        session?.user
+        event === "INITIAL_SESSION" ||
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED"
       ) {
-        const u = session.user;
-        const meta = u.user_metadata as Record<string, unknown> | undefined;
-        const fullName =
-          typeof meta?.full_name === "string"
-            ? meta.full_name
-            : typeof meta?.name === "string"
-            ? meta.name
-            : undefined;
-        void hydrateFromSupabase(u.id, u.email ?? "", fullName);
+        syncSessionUser(session?.user, false);
       }
     });
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getSession().then(({ data }) => {
+          syncSessionUser(data.session?.user, false);
+        });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       sub.subscription.unsubscribe();
     };
   }, [hydrateFromSupabase, clearSupabaseSession]);

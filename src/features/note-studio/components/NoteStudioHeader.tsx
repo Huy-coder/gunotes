@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -63,6 +63,20 @@ export function NoteStudioHeader({
   onOpenCustomize: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const moreContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handleOutside = (e: Event) => {
+      const target = e.target as Node | null;
+      if (moreContainerRef.current && target && moreContainerRef.current.contains(target)) {
+        return;
+      }
+      setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", handleOutside, true);
+    return () => document.removeEventListener("pointerdown", handleOutside, true);
+  }, [moreOpen]);
 
   return (
     <header className="no-print sticky top-0 z-30 border-b border-[var(--border-hairline)] bg-[var(--bg-paper)]/90 backdrop-blur-md">
@@ -213,22 +227,18 @@ export function NoteStudioHeader({
           </button>
 
           {/* Compact Overflow Menu for Mobile / Tablet */}
-          <button
-            type="button"
-            onClick={() => setMoreOpen((v) => !v)}
-            aria-label="Thêm công cụ"
-            className="inline-flex items-center justify-center rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-primary)] lg:hidden"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
+          <div ref={moreContainerRef} className="relative lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-label="Thêm công cụ"
+              className="inline-flex items-center justify-center rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-primary)]"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
 
-          {moreOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-30 lg:hidden"
-                onClick={() => setMoreOpen(false)}
-              />
-              <div className="paper-shadow absolute top-11 right-0 z-40 w-64 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-2 lg:hidden">
+            {moreOpen && (
+              <div className="paper-shadow absolute top-11 right-0 z-50 w-64 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-2">
                 <div className="px-2 py-1 font-mono text-[10px] font-semibold text-[var(--ink-muted)] uppercase">
                   Kiểu mặt giấy
                 </div>
@@ -300,8 +310,8 @@ export function NoteStudioHeader({
                   </button>
                 </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   BookOpen,
@@ -12,14 +13,42 @@ import {
 } from "lucide-react";
 import { StickerArt } from "@/components/stickers/StickerArt";
 import { HighlightText } from "@/components/ui/HighlightText";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 import type { StickerId } from "@/types/study";
 
 const HERO_STICKERS: StickerId[] = ["sparkle", "coffee", "cat", "cyber"];
 
 export default function LandingPage() {
+  const router = useRouter();
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
+  const authMode = useAppStore((s) => s.authMode);
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isStandalone =
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      (window.navigator as { standalone?: boolean }).standalone === true;
+
+    if (isStandalone || (authMode === "supabase" && isAuthenticated)) {
+      router.replace("/workspace");
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (active && data.session?.user) {
+        router.replace("/workspace");
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [authMode, isAuthenticated, router]);
 
   const [demoBlur, setDemoBlur] = useState(true);
   const [demoTrapRevealed, setDemoTrapRevealed] = useState(false);

@@ -36,6 +36,8 @@ export const useAppStore = create<AppState>()(
       skipHydration: true,
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
+        authMode: state.authMode,
+        cloudUserId: state.cloudUserId,
         user: state.user,
         theme: state.theme,
         defaultPaper: state.defaultPaper,

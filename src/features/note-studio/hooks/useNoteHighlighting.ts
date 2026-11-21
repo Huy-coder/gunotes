@@ -1,12 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { applyTextHighlight } from "@/lib/highlight/highlight-markup";
+import { extractWordAtPoint } from "@/lib/highlight/word-at-point";
 import type {
   HighlightUndoEntry,
   SelectionPopupState,
 } from "@/features/note-studio/utils/note-studio-helpers";
 import type { CornellBlock, HighlightColor, Note } from "@/types/study";
+
+export interface PendingBrushSelection {
+  blockId: string;
+  text: string;
+}
 
 export function useNoteHighlighting({
   note,
@@ -31,14 +37,25 @@ export function useNoteHighlighting({
   >("y");
   const [selectionPopup, setSelectionPopup] =
     useState<SelectionPopupState | null>(null);
+  const [pendingBrushSelection, setPendingBrushSelection] =
+    useState<PendingBrushSelection | null>(null);
   const [highlightHistory, setHighlightHistory] = useState<
     HighlightUndoEntry[]
   >([]);
 
+  const lastDragApplyAtRef = useRef<number>(0);
+
   const noteId = note?.id;
   useEffect(() => {
     setHighlightHistory([]);
+    setPendingBrushSelection(null);
   }, [noteId]);
+
+  useEffect(() => {
+    if (!brushMode) {
+      setPendingBrushSelection(null);
+    }
+  }, [brushMode]);
 
   const recordUndoEntry = useCallback(
     (blockId: string, prevContent: string) => {
@@ -96,8 +113,41 @@ export function useNoteHighlighting({
       applyHighlightUpdate(note.id, block, selectedText, mode);
       window.getSelection()?.removeAllRanges();
       setSelectionPopup(null);
+      setPendingBrushSelection(null);
     },
     [note, applyHighlightUpdate]
+  );
+
+  const applyPendingBrushSelection = useCallback(() => {
+    if (!note || !pendingBrushSelection) return;
+    const targetBlock = note.blocks.find(
+      (b) => b.id === pendingBrushSelection.blockId
+    );
+    if (!targetBlock) {
+      setPendingBrushSelection(null);
+      return;
+    }
+    applyHighlightUpdate(note.id, targetBlock, pendingBrushSelection.text, brushColor);
+    window.getSelection()?.removeAllRanges();
+    setPendingBrushSelection(null);
+  }, [note, pendingBrushSelection, brushColor, applyHighlightUpdate]);
+
+  const handleBrushTapAtPoint = useCallback(
+    (
+      block: CornellBlock,
+      clientX: number,
+      clientY: number,
+      containerEl: HTMLElement
+    ) => {
+      if (!note || !brushMode || blurMode) return;
+      if (Date.now() - lastDragApplyAtRef.current < 350) return;
+
+      const word = extractWordAtPoint(clientX, clientY, containerEl);
+      if (!word) return;
+      applyHighlightUpdate(note.id, block, word, brushColor);
+      setPendingBrushSelection(null);
+    },
+    [note, brushMode, blurMode, brushColor, applyHighlightUpdate]
   );
 
   const handleTextareaKeyDown = useCallback(
@@ -126,87 +176,116 @@ export function useNoteHighlighting({
     [note, updateBlock, showToast]
   );
 
-  // Document-level selection capture so mouseup/touchend outside card bounds never drops highlights
+  // Capture desktop mouse drag + mobile native handle selectionchange cleanly
   useEffect(() => {
-    let timer: number | null = null;
+    let finishTimer: number | null = null;
+    let selectionTimer: number | null = null;
 
-    const onSelectionFinish = (ev: Event) => {
-      const targetEl = ev.target as HTMLElement | null;
-      if (targetEl?.closest?.('[data-highlight-ui="true"]')) return;
+    const inspectSelection = (trigger: "mouseup" | "touchend" | "selectionchange") => {
+      if (!note || blurMode) return;
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        setSelectionPopup(null);
+        setPendingBrushSelection(null);
+        return;
+      }
 
-      if (timer !== null) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (!note || blurMode) return;
-        const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-          setSelectionPopup(null);
-          return;
-        }
-        const text = sel.toString().trim();
-        if (text.length < 1) {
-          setSelectionPopup(null);
-          return;
-        }
+      const text = sel.toString().trim();
+      if (text.length < 1) {
+        setSelectionPopup(null);
+        setPendingBrushSelection(null);
+        return;
+      }
 
-        const range = sel.getRangeAt(0);
-        const startNode = range.commonAncestorContainer;
-        const startEl =
-          startNode.nodeType === Node.TEXT_NODE
-            ? startNode.parentElement
-            : (startNode as HTMLElement | null);
-        let blockEl = startEl?.closest?.("[data-block-id]") as HTMLElement | null;
+      const range = sel.getRangeAt(0);
+      const startNode = range.commonAncestorContainer;
+      const startEl =
+        startNode.nodeType === Node.TEXT_NODE
+          ? startNode.parentElement
+          : (startNode as HTMLElement | null);
+      let blockEl = startEl?.closest?.("[data-block-id]") as HTMLElement | null;
 
-        if (!blockEl && sel.anchorNode) {
-          const anchorEl =
-            sel.anchorNode.nodeType === Node.TEXT_NODE
-              ? sel.anchorNode.parentElement
-              : (sel.anchorNode as HTMLElement | null);
-          blockEl = anchorEl?.closest?.("[data-block-id]") as HTMLElement | null;
-        }
+      if (!blockEl && sel.anchorNode) {
+        const anchorEl =
+          sel.anchorNode.nodeType === Node.TEXT_NODE
+            ? sel.anchorNode.parentElement
+            : (sel.anchorNode as HTMLElement | null);
+        blockEl = anchorEl?.closest?.("[data-block-id]") as HTMLElement | null;
+      }
 
-        const blockId = blockEl?.getAttribute("data-block-id");
-        if (!blockId) {
-          setSelectionPopup(null);
-          return;
-        }
+      const blockId = blockEl?.getAttribute("data-block-id");
+      if (!blockId) {
+        setSelectionPopup(null);
+        setPendingBrushSelection(null);
+        return;
+      }
 
-        const matchedBlock = note.blocks.find((b) => b.id === blockId);
-        if (
-          !matchedBlock ||
-          matchedBlock.type === "diagram" ||
-          editingBlockId === matchedBlock.id
-        ) {
-          return;
-        }
+      const matchedBlock = note.blocks.find((b) => b.id === blockId);
+      if (
+        !matchedBlock ||
+        matchedBlock.type === "diagram" ||
+        editingBlockId === matchedBlock.id
+      ) {
+        return;
+      }
 
-        if (brushMode) {
+      const isCoarsePointer =
+        typeof window !== "undefined" &&
+        Boolean(window.matchMedia?.("(pointer: coarse)")?.matches);
+
+      if (brushMode) {
+        if (trigger === "mouseup" && !isCoarsePointer) {
+          lastDragApplyAtRef.current = Date.now();
           applyHighlightUpdate(note.id, matchedBlock, text, brushColor);
           window.getSelection()?.removeAllRanges();
           setSelectionPopup(null);
-          return;
+          setPendingBrushSelection(null);
+        } else {
+          lastDragApplyAtRef.current = Date.now();
+          setPendingBrushSelection({ blockId: matchedBlock.id, text });
+          setSelectionPopup(null);
         }
+        return;
+      }
 
-        const rect = range.getBoundingClientRect();
-        const clampedX = Math.max(
-          150,
-          Math.min(window.innerWidth - 150, rect.left + rect.width / 2)
-        );
-        const clampedY = Math.max(76, rect.top - 10);
-        setSelectionPopup({
-          blockId: matchedBlock.id,
-          text,
-          x: clampedX,
-          y: clampedY,
-        });
-      }, 16);
+      const rect = range.getBoundingClientRect();
+      const clampedX = Math.max(
+        150,
+        Math.min(window.innerWidth - 150, rect.left + rect.width / 2)
+      );
+      const clampedY = Math.max(76, rect.top - 10);
+      setSelectionPopup({
+        blockId: matchedBlock.id,
+        text,
+        x: clampedX,
+        y: clampedY,
+      });
     };
 
-    document.addEventListener("mouseup", onSelectionFinish);
-    document.addEventListener("touchend", onSelectionFinish);
+    const onPointerFinish = (ev: Event) => {
+      const targetEl = ev.target as HTMLElement | null;
+      if (targetEl?.closest?.('[data-highlight-ui="true"]')) return;
+      const trigger = ev.type === "touchend" ? "touchend" : "mouseup";
+      if (finishTimer !== null) window.clearTimeout(finishTimer);
+      finishTimer = window.setTimeout(() => inspectSelection(trigger), 24);
+    };
+
+    const onSelectionChange = () => {
+      if (selectionTimer !== null) window.clearTimeout(selectionTimer);
+      selectionTimer = window.setTimeout(() => {
+        inspectSelection("selectionchange");
+      }, 180);
+    };
+
+    document.addEventListener("mouseup", onPointerFinish);
+    document.addEventListener("touchend", onPointerFinish);
+    document.addEventListener("selectionchange", onSelectionChange);
     return () => {
-      if (timer !== null) window.clearTimeout(timer);
-      document.removeEventListener("mouseup", onSelectionFinish);
-      document.removeEventListener("touchend", onSelectionFinish);
+      if (finishTimer !== null) window.clearTimeout(finishTimer);
+      if (selectionTimer !== null) window.clearTimeout(selectionTimer);
+      document.removeEventListener("mouseup", onPointerFinish);
+      document.removeEventListener("touchend", onPointerFinish);
+      document.removeEventListener("selectionchange", onSelectionChange);
     };
   }, [
     note,
@@ -224,6 +303,9 @@ export function useNoteHighlighting({
     setBrushColor,
     selectionPopup,
     setSelectionPopup,
+    pendingBrushSelection,
+    applyPendingBrushSelection,
+    handleBrushTapAtPoint,
     highlightHistory,
     applyHighlightUpdate,
     applyHighlightAction,

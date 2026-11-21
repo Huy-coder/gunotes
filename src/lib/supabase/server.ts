@@ -20,7 +20,16 @@ export async function createSupabaseServerClient() {
       setAll(cookiesToSet) {
         try {
           for (const { name, value, options } of cookiesToSet) {
-            cookieStore.set(name, value, options);
+            const persistentOptions = {
+              ...options,
+              path: options?.path ?? "/",
+              sameSite: options?.sameSite ?? ("lax" as const),
+              maxAge:
+                options?.maxAge === 0
+                  ? 0
+                  : options?.maxAge ?? 60 * 60 * 24 * 365,
+            };
+            cookieStore.set(name, value, persistentOptions);
           }
         } catch {
           // Safe no-op when invoked inside read-only Server Component render

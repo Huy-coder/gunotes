@@ -51,6 +51,7 @@ export function SemanticBlockCard({
   onDeleteEmptyAndFocusPrev,
   onToggleRevealBlock,
   onBrushApply,
+  onBrushTapWord,
   onRecordUndo,
   onTextareaKeyDown,
   onWikiLinkInserted,
@@ -94,6 +95,12 @@ export function SemanticBlockCard({
     block: CornellBlock,
     selected: string,
     mode: HighlightColor | "cloze" | "clear"
+  ) => void;
+  onBrushTapWord: (
+    block: CornellBlock,
+    clientX: number,
+    clientY: number,
+    containerEl: HTMLElement
   ) => void;
   onRecordUndo: (blockId: string, prevContent: string) => void;
   onTextareaKeyDown: (
@@ -489,9 +496,37 @@ export function SemanticBlockCard({
               onBrushApply(noteId, block, selected, brushColor);
             }}
             onChange={(e) => {
-              const nextVal = e.target.value;
+              let nextVal = e.target.value;
+              let nextCaret = e.target.selectionStart;
+              const lineStart =
+                nextVal.lastIndexOf("\n", Math.max(0, nextCaret - 1)) + 1;
+              const linePrefix = nextVal.slice(lineStart, nextCaret);
+              const prevLineRemainder = block.content.slice(lineStart);
+              const nextLineRemainder = nextVal.slice(lineStart);
+              if (
+                linePrefix === "- " ||
+                linePrefix === "* " ||
+                ((nextLineRemainder.startsWith("- ") ||
+                  nextLineRemainder.startsWith("* ")) &&
+                  !prevLineRemainder.startsWith("- ") &&
+                  !prevLineRemainder.startsWith("* "))
+              ) {
+                nextVal =
+                  nextVal.slice(0, lineStart) +
+                  "• " +
+                  nextLineRemainder.slice(2);
+                const el = e.currentTarget;
+                requestAnimationFrame(() => {
+                  el.setSelectionRange(nextCaret, nextCaret);
+                });
+              }
+
               onUpdateBlock(noteId, block.id, { content: nextVal });
-              updateSlashTrigger(nextVal, e.target.selectionStart);
+              updateSlashTrigger(nextVal, nextCaret);
+
+              if (nextVal.slice(0, nextCaret).endsWith("[[")) {
+                setLinkPickerBlockId(block.id);
+              }
             }}
             className={`w-full bg-transparent text-[16px] leading-7 text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)]/60 sm:text-[15px] ${
               block.type === "formula" ? "font-mono" : ""
@@ -560,13 +595,15 @@ export function SemanticBlockCard({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
+                        const base = block.content.endsWith("[[")
+                          ? block.content.slice(0, -2)
+                          : block.content;
                         const sep =
-                          block.content.trim().length > 0 &&
-                          !/\s$/.test(block.content)
+                          base.trim().length > 0 && !/[\s\[]$/.test(base)
                             ? " "
                             : "";
                         onUpdateBlock(noteId, block.id, {
-                          content: `${block.content}${sep}[[${targetNote.title}]]`,
+                          content: `${base}${sep}[[${targetNote.title}]]`,
                         });
                         setLinkPickerBlockId(null);
                         onWikiLinkInserted(targetNote.title);
@@ -590,16 +627,21 @@ export function SemanticBlockCard({
       ) : (
         <div
           onClick={(e) => {
-            if (blurMode || brushMode) return;
+            if (blurMode) return;
             const target = e.target as HTMLElement | null;
             if (target?.closest("button, a")) return;
-            const selected = window.getSelection()?.toString().trim() ?? "";
+            const sel = window.getSelection();
+            const selected = sel?.toString().trim() ?? "";
             if (selected.length > 0) return;
+            if (brushMode) {
+              onBrushTapWord(block, e.clientX, e.clientY, e.currentTarget);
+              return;
+            }
             setEditingBlockId(block.id, "end");
             clearSelectionPopup();
           }}
           className={`min-h-[1.75rem] text-[15px] leading-7 ${
-            !blurMode && !brushMode ? "cursor-text" : ""
+            !blurMode ? "cursor-text" : ""
           } ${shouldBlur ? "blur-recall-mask" : "blur-recall-revealed"}`}
         >
           {block.content.trim().length === 0 ? (

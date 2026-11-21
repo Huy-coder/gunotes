@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "GuNotes",
     description:
       "Không gian ghi chú chủ động chuẩn Minimal Paper: Cornell Note, Bút nhớ, Sơ đồ đa tầng, Flashcards & Focus Cockpit.",
-    start_url: "/",
+    start_url: "/workspace",
     scope: "/",
     display: "standalone",
     background_color: "#f4f1ea",

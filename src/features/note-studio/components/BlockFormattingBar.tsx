@@ -49,10 +49,10 @@ export function BlockFormattingBar({
   return (
     <div
       data-highlight-ui="true"
-      className="no-print flex flex-wrap items-center justify-between gap-1.5 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-paper)]/95 px-2 py-1.5 shadow-xs"
+      className="no-print flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-paper)]/95 px-2.5 py-2 shadow-xs"
     >
       {/* Text formatting: colors, cloze, formula, wiki-link */}
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1.5">
         {HIGHLIGHT_COLORS.map((c) => (
           <button
             key={c.id}
@@ -63,7 +63,7 @@ export function BlockFormattingBar({
               onWrapSelection(c.id);
             }}
             title={`Tô ${c.label} đoạn đang chọn`}
-            className="h-6 w-6 rounded-full border border-black/15 transition hover:scale-110"
+            className="h-8 w-8 rounded-full border border-black/15 transition hover:scale-110 sm:h-6 sm:w-6"
             style={{ backgroundColor: c.cssVar }}
             aria-label={`Tô ${c.label}`}
           />
@@ -76,7 +76,7 @@ export function BlockFormattingBar({
             onWrapSelection("cloze");
           }}
           title="Che chữ thành ô tự kiểm tra {{...}}"
-          className="rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)]"
+          className="min-h-[34px] rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)] sm:min-h-[28px] sm:px-2"
         >
           Che chữ
         </button>
@@ -88,9 +88,9 @@ export function BlockFormattingBar({
             onOpenFormula();
           }}
           title="Chèn / sửa công thức toán fx"
-          className="inline-flex items-center gap-0.5 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)]"
+          className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)] sm:min-h-[28px] sm:px-2"
         >
-          <Sigma className="h-3 w-3" />
+          <Sigma className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           <span>fx</span>
         </button>
         <button
@@ -101,15 +101,15 @@ export function BlockFormattingBar({
             onToggleLinkPicker();
           }}
           title="Chèn liên kết tới trang khác [[...]]"
-          className="inline-flex items-center gap-0.5 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)]"
+          className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)] sm:min-h-[28px] sm:px-2"
         >
-          <Link2 className="h-3 w-3" />
+          <Link2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           <span className="hidden sm:inline">[[Link]]</span>
         </button>
       </div>
 
       {/* Block type switcher + structural actions */}
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1.5">
         <div className="flex items-center rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-desk)] p-0.5">
           {BLOCK_TYPE_PILLS.map((pill) => {
             const active = currentType === pill.type;
@@ -123,7 +123,7 @@ export function BlockFormattingBar({
                   onChangeBlockType(pill.type);
                 }}
                 title={pill.title}
-                className={`rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold transition ${
+                className={`min-h-[30px] rounded-md px-2 py-1 font-mono text-[11px] font-semibold transition sm:min-h-[24px] sm:px-1.5 sm:py-0.5 sm:text-[10px] ${
                   active
                     ? "bg-[var(--bg-elevated)] text-[var(--ink-primary)] shadow-2xs"
                     : "text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
@@ -143,9 +143,9 @@ export function BlockFormattingBar({
             onInsertBelow();
           }}
           title="Thêm khối viết tiếp bên dưới (Ctrl/Cmd+Enter)"
-          className="inline-flex items-center gap-0.5 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1 font-mono text-[10px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)]"
+          className="inline-flex min-h-[34px] items-center gap-1 rounded-lg border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[11px] font-semibold text-[var(--ink-primary)] hover:border-[var(--ink-primary)] sm:min-h-[28px] sm:px-2 sm:text-[10px]"
         >
-          <Plus className="h-3 w-3" />
+          <Plus className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           <span>Dưới</span>
         </button>
 
@@ -158,7 +158,7 @@ export function BlockFormattingBar({
             onMove("up");
           }}
           title="Đưa khối lên"
-          className="rounded-lg p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] disabled:opacity-30"
+          className="inline-flex min-h-[34px] min-w-[34px] items-center justify-center rounded-lg p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] disabled:opacity-30 sm:min-h-[28px] sm:min-w-[28px]"
         >
           <ArrowUp className="h-3.5 w-3.5" />
         </button>
@@ -171,7 +171,7 @@ export function BlockFormattingBar({
             onMove("down");
           }}
           title="Đưa khối xuống"
-          className="rounded-lg p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] disabled:opacity-30"
+          className="inline-flex min-h-[34px] min-w-[34px] items-center justify-center rounded-lg p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] disabled:opacity-30 sm:min-h-[28px] sm:min-w-[28px]"
         >
           <ArrowDown className="h-3.5 w-3.5" />
         </button>
@@ -183,7 +183,7 @@ export function BlockFormattingBar({
             onDelete();
           }}
           title="Xóa khối này"
-          className="rounded-lg p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-red-600"
+          className="inline-flex min-h-[34px] min-w-[34px] items-center justify-center rounded-lg p-1 text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-red-600 sm:min-h-[28px] sm:min-w-[28px]"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -195,9 +195,9 @@ export function BlockFormattingBar({
             onDone();
           }}
           title="Xong (Esc)"
-          className="inline-flex items-center gap-0.5 rounded-lg bg-[var(--accent-primary)] px-2 py-1 font-mono text-[10px] font-semibold text-[var(--accent-primary-fg)]"
+          className="inline-flex min-h-[34px] items-center gap-1 rounded-lg bg-[var(--accent-primary)] px-2.5 py-1 font-mono text-[11px] font-semibold text-[var(--accent-primary-fg)] sm:min-h-[28px] sm:px-2 sm:text-[10px]"
         >
-          <Check className="h-3 w-3" />
+          <Check className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           <span>Xong</span>
         </button>
       </div>

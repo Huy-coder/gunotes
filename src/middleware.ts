@@ -25,7 +25,16 @@ export async function middleware(request: NextRequest) {
           request,
         });
         for (const { name, value, options } of cookiesToSet) {
-          response.cookies.set(name, value, options);
+          const persistentOptions = {
+            ...options,
+            path: options?.path ?? "/",
+            sameSite: options?.sameSite ?? ("lax" as const),
+            maxAge:
+              options?.maxAge === 0
+                ? 0
+                : options?.maxAge ?? 60 * 60 * 24 * 365,
+          };
+          response.cookies.set(name, value, persistentOptions);
         }
       },
     },

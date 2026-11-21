@@ -16,6 +16,7 @@ import {
   RefreshCw,
   RotateCcw,
 } from "lucide-react";
+import { APP_VERSION_LABEL } from "@/lib/app-version";
 import { useAppStore } from "@/store/useAppStore";
 
 interface SupabaseHealthInfo {
@@ -50,6 +51,29 @@ export function AccountCloudTab() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [sqlCopying, setSqlCopying] = useState(false);
   const [sqlCopied, setSqlCopied] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    try {
+      if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+          if (reg.waiting || reg.installing) {
+            showToast("Có bản cập nhật mới — đang tải lại ứng dụng...");
+            window.setTimeout(() => window.location.reload(), 600);
+            return;
+          }
+        }
+      }
+      showToast(`Bạn đang dùng phiên bản mới nhất (${APP_VERSION_LABEL})`);
+    } catch {
+      showToast(`Phiên bản hiện tại: ${APP_VERSION_LABEL}`);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
 
   const fetchHealth = useCallback(async () => {
     setHealthLoading(true);
@@ -124,7 +148,7 @@ export function AccountCloudTab() {
               </h3>
             </div>
             <p className="font-mono text-[11px] text-[var(--ink-muted)]">
-              Project ID:{" "}
+              Phiên bản ứng dụng: <strong>{APP_VERSION_LABEL}</strong> • Project ID:{" "}
               <strong>{health?.projectRef ?? "ifoxqhdmqnxwhdwiqxbh"}</strong> •
               Trạng thái:{" "}
               {healthLoading && !health
@@ -137,7 +161,21 @@ export function AccountCloudTab() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCheckUpdate()}
+              disabled={checkingUpdate}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1 font-mono text-[10px] font-semibold hover:border-[var(--ink-primary)]"
+              title="Kiểm tra phiên bản PWA mới nhất"
+            >
+              {checkingUpdate ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3 w-3" />
+              )}
+              <span>Kiểm tra cập nhật</span>
+            </button>
             <span
               className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold"
               style={{

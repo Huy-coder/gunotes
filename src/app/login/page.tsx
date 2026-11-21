@@ -35,6 +35,7 @@ export default function LoginPage() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [magicSent, setMagicSent] = useState(false);
   const [signupNeedsConfirm, setSignupNeedsConfirm] = useState(false);
+  const [restoringSession, setRestoringSession] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,8 +45,32 @@ export default function LoginPage() {
       setErrorMsg(
         "Liên kết xác thực không hợp lệ hoặc đã hết hạn. Vui lòng thử đăng nhập lại."
       );
+      return;
     }
-  }, []);
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      if (!active || !u) return;
+      setRestoringSession(true);
+      if (useAppStore.getState().cloudUserId !== u.id) {
+        const meta = u.user_metadata as Record<string, unknown> | undefined;
+        const fullName =
+          typeof meta?.full_name === "string"
+            ? meta.full_name
+            : typeof meta?.name === "string"
+            ? meta.name
+            : undefined;
+        void hydrateFromSupabase(u.id, u.email ?? "", fullName);
+      }
+      router.replace("/workspace");
+    });
+    return () => {
+      active = false;
+    };
+  }, [hydrateFromSupabase, router]);
 
   const handleGoogleLogin = async () => {
     setErrorMsg(null);
@@ -290,6 +315,19 @@ export default function LoginPage() {
               Đăng nhập để lưu trữ và đồng bộ toàn bộ sổ tay, sơ đồ nhánh và
               lịch ôn tập trên Supabase.
             </p>
+
+            {restoringSession && (
+              <div
+                className="mt-4 flex items-center gap-2 rounded-xl border p-3 text-xs font-medium"
+                style={{
+                  backgroundColor: "var(--sem-def-bg)",
+                  borderColor: "var(--sem-def-border)",
+                }}
+              >
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                <span>Đang khôi phục phiên đăng nhập...</span>
+              </div>
+            )}
 
             {errorMsg && (
               <div

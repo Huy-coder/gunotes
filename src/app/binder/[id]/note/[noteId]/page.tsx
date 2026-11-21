@@ -115,6 +115,9 @@ export default function NoteStudioPage() {
     setBrushColor,
     selectionPopup,
     setSelectionPopup,
+    pendingBrushSelection,
+    applyPendingBrushSelection,
+    handleBrushTapAtPoint,
     highlightHistory,
     applyHighlightUpdate,
     applyHighlightAction,
@@ -641,6 +644,7 @@ export default function NoteStudioPage() {
                     onDeleteEmptyAndFocusPrev={handleDeleteEmptyAndFocusPrev}
                     onToggleRevealBlock={toggleRevealBlock}
                     onBrushApply={applyHighlightUpdate}
+                    onBrushTapWord={handleBrushTapAtPoint}
                     onRecordUndo={recordUndoEntry}
                     onTextareaKeyDown={handleTextareaKeyDown}
                     onWikiLinkInserted={(targetTitle) =>
@@ -666,10 +670,12 @@ export default function NoteStudioPage() {
           <NoteSelectionMenus
             selectionPopup={selectionPopup}
             selectedBlock={selectedBlock}
+            pendingBrushSelection={pendingBrushSelection}
             brushMode={brushMode}
             brushColor={brushColor}
             highlightHistoryCount={highlightHistory.length}
             onSetBrushColor={setBrushColor}
+            onApplyPendingBrush={applyPendingBrushSelection}
             onCloseBrushMode={() => setBrushMode(false)}
             onUndoHighlight={handleUndoHighlight}
             onApplyHighlight={applyHighlightAction}

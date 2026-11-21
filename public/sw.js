@@ -1,7 +1,5 @@
-const CACHE_NAME = "gunotes-pwa-v1";
+const CACHE_NAME = "gunotes-pwa-v1.2.0-r2";
 const PRECACHE_URLS = [
-  "/",
-  "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
@@ -37,11 +35,15 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/auth/")) {
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/auth/") ||
+    url.pathname === "/manifest.webmanifest"
+  ) {
     return;
   }
 
-  // Network-first for HTML page navigations so latest deployments load immediately
+  // Network-first for HTML page navigations so auth redirects and latest deployments stay fresh
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -52,9 +54,7 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() =>
-          caches.match(request).then((cached) => cached || caches.match("/"))
-        )
+        .catch(() => caches.match(request))
     );
     return;
   }
