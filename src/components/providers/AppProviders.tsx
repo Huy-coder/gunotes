@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { AmbientAudioEngine } from "@/components/audio/AmbientAudioEngine";
 import { CommandPalette } from "@/components/overlays/CommandPalette";
 import { CustomizeDrawer } from "@/components/overlays/CustomizeDrawer";
+import { PwaRegistrar } from "@/components/pwa/PwaRegistrar";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -110,6 +111,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <AmbientAudioEngine />
       <CommandPalette />
       <CustomizeDrawer />
+      <PwaRegistrar />
       {toastMessage && (
         <div className="no-print fixed right-4 bottom-20 z-50 rounded-full border border-[var(--border-hairline)] bg-[var(--ink-primary)] px-4 py-2 text-xs font-medium text-[var(--bg-paper)] shadow-lg lg:bottom-6">
           {toastMessage}

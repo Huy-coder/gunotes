@@ -1,13 +1,32 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { AppProviders } from "@/components/providers/AppProviders";
 import "katex/dist/katex.min.css";
 import "@xyflow/react/dist/style.css";
 import "./globals.css";
 
+export const viewport: Viewport = {
+  themeColor: "#1f1e1b",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "GuNotes — Học bá có gu | Không gian ghi chú Minimal Paper",
   description:
     "Ứng dụng học tập và ghi chú chủ động chuẩn gu 9x–2k: Cornell Note, Color-coding, Blur Recall, Flashcards và Focus Cockpit.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "GuNotes",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({
