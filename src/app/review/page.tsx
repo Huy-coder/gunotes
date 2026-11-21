@@ -250,25 +250,30 @@ function ReviewDeckInner() {
                 <CheckCircle2 className="h-6 w-6" />
               </div>
               <h2 className="mt-4 text-xl font-bold">
-                Đã ôn xong toàn bộ thẻ!
+                {totalInFilter === 0
+                  ? "Chưa có thẻ Flashcard nào"
+                  : "Đã ôn xong toàn bộ thẻ!"}
               </h2>
               <p className="mt-2 text-sm text-[var(--ink-muted)]">
-                Bạn vừa hoàn thành {completedCount} lượt ôn tập trong phiên này.
-                Kiến thức đã được lên lịch nhắc lại thông minh.
+                {totalInFilter === 0
+                  ? "Hãy tạo ghi chú trong sổ tay và bấm biểu tượng Flashcard trên từng khối kiến thức để gom thẻ ôn tập."
+                  : `Bạn vừa hoàn thành ${completedCount} lượt ôn tập trong phiên này. Kiến thức đã được lên lịch nhắc lại thông minh.`}
               </p>
               <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetReviewDeck();
-                    setCompletedCount(0);
-                    showToast("Đã nạp lại toàn bộ bộ thẻ để ôn thêm.");
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-4 py-2 text-xs font-semibold"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Ôn lại từ đầu</span>
-                </button>
+                {totalInFilter > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetReviewDeck();
+                      setCompletedCount(0);
+                      showToast("Đã nạp lại toàn bộ bộ thẻ để ôn thêm.");
+                    }}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-4 py-2 text-xs font-semibold"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Ôn lại từ đầu</span>
+                  </button>
+                )}
                 <Link
                   href="/workspace"
                   className="inline-flex items-center justify-center rounded-full bg-[var(--accent-primary)] px-5 py-2 text-xs font-semibold text-[var(--accent-primary-fg)]"

@@ -49,7 +49,7 @@ export default function BinderIndexPage() {
     null
   );
 
-  const binder = binders.find((b) => b.id === binderId) ?? binders[0];
+  const binder = binders.find((b) => b.id === binderId);
   const binderNotes = useMemo(
     () => notes.filter((n) => n.binderId === binder?.id),
     [notes, binder?.id]

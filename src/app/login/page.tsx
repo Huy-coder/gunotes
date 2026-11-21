@@ -51,9 +51,9 @@ export default function LoginPage() {
     setErrorMsg(null);
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
-      loginMock("google", "minhanh.study@gmail.com");
-      showToast("Đăng nhập Demo thành công!");
-      router.push("/workspace");
+      loginMock("guest");
+      showToast("Đã bắt đầu không gian học tập cục bộ!");
+      router.push(useAppStore.getState().user.onboarded ? "/workspace" : "/onboarding");
       return;
     }
 
@@ -442,7 +442,7 @@ export default function LoginPage() {
                           type="text"
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
-                          placeholder="VD: Minh Anh"
+                          placeholder="VD: Hoàng Nam"
                           className="w-full rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-paper)] px-3.5 py-2 text-sm outline-none transition focus:border-[var(--ink-primary)]"
                         />
                       </div>
@@ -572,11 +572,12 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   loginMock("guest");
-                  router.push("/workspace");
+                  const onboarded = useAppStore.getState().user.onboarded;
+                  router.push(onboarded ? "/workspace" : "/onboarding");
                 }}
                 className="text-xs font-medium text-[var(--ink-muted)] underline-offset-4 hover:text-[var(--ink-primary)] hover:underline"
               >
-                Dùng thử nhanh bàn học mẫu không cần tài khoản →
+                Tiếp tục không cần tài khoản (Lưu cục bộ) →
               </button>
             </div>
           </div>

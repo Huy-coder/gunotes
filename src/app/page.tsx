@@ -109,11 +109,11 @@ export default function LandingPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/workspace"
+              href="/onboarding"
               className="flex w-full items-center justify-center gap-2 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-6 py-3 text-sm font-medium text-[var(--ink-primary)] transition hover:border-[var(--ink-muted)] sm:w-auto"
             >
               <BookOpen className="h-4 w-4" />
-              <span>Vào trải nghiệm bản Demo</span>
+              <span>Bắt đầu học ngay</span>
             </Link>
           </div>
         </div>

@@ -85,7 +85,9 @@ export default function WorkspacePage() {
               Giá sách của bạn
             </h1>
             <p className="mt-1 text-sm text-[var(--ink-muted)]">
-              {dueTotal > 0 ? (
+              {binders.length === 0 && notes.length === 0 ? (
+                "Chào mừng đến GuNotes! Hãy tạo cuốn sổ đầu tiên để bắt đầu ghi chép."
+              ) : dueTotal > 0 ? (
                 <>
                   Hôm nay bạn có{" "}
                   <Link
@@ -149,37 +151,67 @@ export default function WorkspacePage() {
             </Link>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible">
-            {recentNotes.map((note) => {
-              const binder = binders.find((b) => b.id === note.binderId);
-              return (
-                <Link
-                  key={note.id}
-                  href={`/binder/${note.binderId}/note/${note.id}`}
-                  className={`${getPaperClass(
-                    note.paperStyle
-                  )} paper-shadow flex min-w-[250px] flex-col justify-between rounded-2xl border border-[var(--border-hairline)] p-4 transition hover:-translate-y-0.5 sm:min-w-0`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="max-w-[140px] truncate rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-[var(--ink-muted)]">
-                        {binder?.title ?? "Sổ"}
-                      </span>
-                      <span className="shrink-0 font-mono text-[10px] whitespace-nowrap text-[var(--ink-muted)]">
-                        {note.updatedAt}
-                      </span>
+          {recentNotes.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-3 sm:overflow-visible">
+              {recentNotes.map((note) => {
+                const binder = binders.find((b) => b.id === note.binderId);
+                return (
+                  <Link
+                    key={note.id}
+                    href={`/binder/${note.binderId}/note/${note.id}`}
+                    className={`${getPaperClass(
+                      note.paperStyle
+                    )} paper-shadow flex min-w-[250px] flex-col justify-between rounded-2xl border border-[var(--border-hairline)] p-4 transition hover:-translate-y-0.5 sm:min-w-0`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="max-w-[140px] truncate rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-0.5 font-mono text-[10px] whitespace-nowrap text-[var(--ink-muted)]">
+                          {binder?.title ?? "Sổ"}
+                        </span>
+                        <span className="shrink-0 font-mono text-[10px] whitespace-nowrap text-[var(--ink-muted)]">
+                          {note.updatedAt}
+                        </span>
+                      </div>
+                      <h3 className="mt-2.5 line-clamp-1 text-sm font-semibold">
+                        {note.title}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-xs text-[var(--ink-muted)]">
+                        {note.summary}
+                      </p>
                     </div>
-                    <h3 className="mt-2.5 line-clamp-1 text-sm font-semibold">
-                      {note.title}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-xs text-[var(--ink-muted)]">
-                      {note.summary}
-                    </p>
-                  </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="paper-dot paper-shadow flex flex-col items-start justify-between gap-4 rounded-2xl border border-dashed border-[var(--border-hairline)] p-5 sm:flex-row sm:items-center">
+              <div>
+                <h3 className="text-sm font-semibold">
+                  Bàn học của bạn đang trống sạch sẽ
+                </h3>
+                <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                  Tạo cuốn sổ bìa còng đầu tiên hoặc chọn gu học tập phù hợp với bạn.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-primary)] px-4 py-2 text-xs font-semibold text-[var(--accent-primary-fg)] transition hover:opacity-90"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Tạo sổ đầu tiên</span>
+                </button>
+                <Link
+                  href="/onboarding"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-4 py-2 text-xs font-medium hover:border-[var(--ink-primary)]"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Thiết lập gu học tập</span>
                 </Link>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Main Ring-Binder Shelf Grid */}

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  INITIAL_BINDERS,
-  INITIAL_FLASHCARDS,
-  INITIAL_FOCUS_TASKS,
-  INITIAL_NOTES,
-  INITIAL_USER,
-} from "@/lib/repository/mock-data";
+import { DEFAULT_STARTER_STICKERS } from "@/lib/repository/initial-state";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   Binder,
@@ -233,7 +227,7 @@ function mapFlashcardRow(r: DbFlashcardRow, noteTitleLookup: Map<string, string>
   };
 }
 
-export async function fetchOrSeedCloudWorkspace(
+export async function fetchCloudWorkspace(
   userId: string,
   email: string,
   displayName?: string
@@ -279,9 +273,7 @@ export async function fetchOrSeedCloudWorkspace(
     let profileRow = profileRes.data as DbProfileRow | null;
     if (!profileRow) {
       const fallbackName =
-        displayName?.trim() ||
-        email.split("@")[0] ||
-        INITIAL_USER.displayName;
+        displayName?.trim() || email.split("@")[0] || "Bạn mới";
       const insertPayload = {
         id: userId,
         email,
@@ -290,12 +282,12 @@ export async function fetchOrSeedCloudWorkspace(
         default_paper: "dot",
         note_font: "sans",
         study_persona: "flow",
-        streak_days: 1,
+        streak_days: 0,
         weekly_focus_minutes: 0,
         today_focus_minutes: 0,
-        unlocked_stickers: INITIAL_USER.unlockedStickers,
-        focus_tasks: INITIAL_FOCUS_TASKS,
-        onboarded: true,
+        unlocked_stickers: DEFAULT_STARTER_STICKERS,
+        focus_tasks: [],
+        onboarded: false,
       };
       const upRes = await supabase
         .from("profiles")
@@ -309,93 +301,9 @@ export async function fetchOrSeedCloudWorkspace(
       profileRow = upRes.data as DbProfileRow;
     }
 
-    let binderRows = (bindersRes.data ?? []) as DbBinderRow[];
-    let noteRows = (notesRes.data ?? []) as DbNoteRow[];
-    let flashcardRows = (flashcardsRes.data ?? []) as DbFlashcardRow[];
-
-    // Brand-new Supabase user: seed initial GuNotes demo binders, notes & flashcards with real UUIDs
-    if (binderRows.length === 0) {
-      const binderIdMap = new Map<string, string>();
-      const noteIdMap = new Map<string, string>();
-
-      const seedBinders: DbBinderRow[] = INITIAL_BINDERS.map((b) => {
-        const uuid = generateUuid();
-        binderIdMap.set(b.id, uuid);
-        return {
-          id: uuid,
-          user_id: userId,
-          title: b.title,
-          subtitle: b.subtitle,
-          subject_tag: b.subjectTag,
-          cover_tone: b.coverTone,
-          cover_pattern: b.coverPattern,
-          stickers: b.stickers,
-          mastery_percent: b.masteryPercent,
-          sort_order: b.sortOrder,
-        };
-      });
-
-      const seedNotes: DbNoteRow[] = INITIAL_NOTES.map((n) => {
-        const uuid = generateUuid();
-        noteIdMap.set(n.id, uuid);
-        return {
-          id: uuid,
-          user_id: userId,
-          binder_id: binderIdMap.get(n.binderId) ?? seedBinders[0].id,
-          title: n.title,
-          template: n.template,
-          paper_style: n.paperStyle,
-          tags: n.tags,
-          blocks: n.blocks,
-          block_links: n.blockLinks ?? [],
-          summary: n.summary,
-          header_sticker_id: n.headerStickerId ?? null,
-          is_pinned: Boolean(n.isPinned),
-          updated_at: new Date().toISOString(),
-        };
-      });
-
-      const seedFlashcards: DbFlashcardRow[] = INITIAL_FLASHCARDS.map((f) => ({
-        id: generateUuid(),
-        user_id: userId,
-        binder_id: binderIdMap.get(f.binderId) ?? seedBinders[0].id,
-        note_id: noteIdMap.get(f.noteId) ?? seedNotes[0].id,
-        note_title: f.noteTitle,
-        block_type: f.type,
-        front: f.front,
-        back: f.back,
-        tip: f.tip ?? null,
-        due_label: f.dueLabel,
-        is_due: f.isDue,
-        interval_days: f.intervalDays,
-        reps: f.reps,
-      }));
-
-      const insBinders = await supabase.from("binders").insert(seedBinders);
-      if (insBinders.error) {
-        return { status: "error", message: insBinders.error.message };
-      }
-      const insNotes = await supabase.from("notes").insert(seedNotes);
-      if (insNotes.error) {
-        return { status: "error", message: insNotes.error.message };
-      }
-      const insCards = await supabase.from("flashcards").insert(seedFlashcards);
-      if (insCards.error) {
-        return { status: "error", message: insCards.error.message };
-      }
-
-      if (!Array.isArray(profileRow.focus_tasks) || profileRow.focus_tasks.length === 0) {
-        await supabase
-          .from("profiles")
-          .update({ focus_tasks: INITIAL_FOCUS_TASKS })
-          .eq("id", userId);
-        profileRow.focus_tasks = INITIAL_FOCUS_TASKS;
-      }
-
-      binderRows = seedBinders;
-      noteRows = seedNotes;
-      flashcardRows = seedFlashcards;
-    }
+    const binderRows = (bindersRes.data ?? []) as DbBinderRow[];
+    const noteRows = (notesRes.data ?? []) as DbNoteRow[];
+    const flashcardRows = (flashcardsRes.data ?? []) as DbFlashcardRow[];
 
     const mappedBinders = binderRows.map(mapBinderRow);
     const mappedNotes = noteRows.map(mapNoteRow);
@@ -404,22 +312,22 @@ export async function fetchOrSeedCloudWorkspace(
 
     const user: UserProfile = {
       id: profileRow.id,
-      displayName: profileRow.display_name || INITIAL_USER.displayName,
+      displayName:
+        profileRow.display_name || email.split("@")[0] || "Bạn mới",
       email: profileRow.email || email,
-      streakDays: profileRow.streak_days ?? 1,
+      streakDays: profileRow.streak_days ?? 0,
       weeklyFocusMinutes: profileRow.weekly_focus_minutes ?? 0,
       todayFocusMinutes: profileRow.today_focus_minutes ?? 0,
       unlockedStickers: Array.isArray(profileRow.unlocked_stickers)
         ? profileRow.unlocked_stickers
-        : INITIAL_USER.unlockedStickers,
+        : [...DEFAULT_STARTER_STICKERS],
       studyPersona: (profileRow.study_persona as StudyPersona) || "flow",
-      onboarded: profileRow.onboarded ?? true,
+      onboarded: profileRow.onboarded ?? false,
     };
 
-    const focusTasks: FocusTask[] =
-      Array.isArray(profileRow.focus_tasks) && profileRow.focus_tasks.length > 0
-        ? profileRow.focus_tasks
-        : INITIAL_FOCUS_TASKS;
+    const focusTasks: FocusTask[] = Array.isArray(profileRow.focus_tasks)
+      ? profileRow.focus_tasks
+      : [];
 
     return {
       status: "ok",

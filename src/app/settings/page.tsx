@@ -17,7 +17,6 @@ import {
   LogOut,
   RefreshCw,
   RotateCcw,
-  Sparkles,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { STICKER_CATALOG, StickerArt } from "@/components/stickers/StickerArt";
@@ -98,10 +97,7 @@ export default function SettingsPage() {
   const setDefaultPaper = useAppStore((s) => s.setDefaultPaper);
   const setNoteFont = useAppStore((s) => s.setNoteFont);
   const setStudyPersona = useAppStore((s) => s.setStudyPersona);
-  const unlockAllStickersPreview = useAppStore(
-    (s) => s.unlockAllStickersPreview
-  );
-  const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const resetLocalWorkspace = useAppStore((s) => s.resetLocalWorkspace);
   const signOutAndResetLocal = useAppStore((s) => s.signOutAndResetLocal);
   const authMode = useAppStore((s) => s.authMode);
   const cloudUserId = useAppStore((s) => s.cloudUserId);
@@ -398,14 +394,6 @@ export default function SettingsPage() {
               <p className="text-sm text-[var(--ink-muted)]">
                 Sticker die-cut được mở khóa dần theo chuỗi ngày học đều đặn.
               </p>
-              <button
-                type="button"
-                onClick={unlockAllStickersPreview}
-                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-3.5 py-1.5 text-xs font-semibold hover:border-[var(--ink-primary)]"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Mở khóa thử tất cả (Demo)</span>
-              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -716,11 +704,11 @@ export default function SettingsPage() {
               {authMode === "guest" && (
                 <button
                   type="button"
-                  onClick={resetDemoData}
+                  onClick={resetLocalWorkspace}
                   className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-4 py-3 text-xs font-semibold hover:border-[var(--ink-primary)]"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  <span>Khôi phục dữ liệu mẫu</span>
+                  <span>Đặt lại dữ liệu cục bộ</span>
                 </button>
               )}
 

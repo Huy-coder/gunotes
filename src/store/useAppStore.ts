@@ -2,18 +2,12 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import {
-  INITIAL_BINDERS,
-  INITIAL_FLASHCARDS,
-  INITIAL_FOCUS_TASKS,
-  INITIAL_NOTES,
-  INITIAL_USER,
-} from "@/lib/repository/mock-data";
+import { createEmptyUserProfile } from "@/lib/repository/initial-state";
 import {
   batchUpsertFlashcardsToCloud,
   deleteBinderFromCloud,
   deleteNoteFromCloud,
-  fetchOrSeedCloudWorkspace,
+  fetchCloudWorkspace,
   flushNoteToCloud,
   generateUuid,
   logStudySessionToCloud,
@@ -221,7 +215,7 @@ interface AppState {
   showToast: (msg: string) => void;
   clearToast: () => void;
   unlockAllStickersPreview: () => void;
-  resetDemoData: () => void;
+  resetLocalWorkspace: () => void;
 }
 
 const STICKER_SLOTS: Array<{ xPct: number; yPct: number; rotation: number }> = [
@@ -293,25 +287,25 @@ export const useAppStore = create<AppState>()(
       };
 
       return {
-        isAuthenticated: true,
+        isAuthenticated: false,
         authMode: "guest",
         cloudUserId: null,
         cloudSyncStatus: "local",
         cloudError: null,
-        user: INITIAL_USER,
+        user: createEmptyUserProfile(),
         theme: "minimal-paper",
         defaultPaper: "dot",
         noteFont: "sans",
-        binders: INITIAL_BINDERS,
-        notes: INITIAL_NOTES,
+        binders: [],
+        notes: [],
         blurMode: false,
         revealedBlockIds: [],
-        flashcards: INITIAL_FLASHCARDS,
+        flashcards: [],
         focusMode: 25,
         secondsLeft: 25 * 60,
         isTimerRunning: false,
-        activeBinderId: INITIAL_BINDERS[0].id,
-        focusTasks: INITIAL_FOCUS_TASKS,
+        activeBinderId: "",
+        focusTasks: [],
         ambientVolumes: {
           rain: 35,
           cafe: 0,
@@ -333,7 +327,7 @@ export const useAppStore = create<AppState>()(
               email: email?.trim() || state.user.email,
               displayName:
                 provider === "guest"
-                  ? "Bạn học (Demo)"
+                  ? state.user.displayName || "Bạn mới"
                   : email?.split("@")[0] || state.user.displayName,
             },
           }));
@@ -358,7 +352,7 @@ export const useAppStore = create<AppState>()(
             isAuthenticated: true,
           });
 
-          const res = await fetchOrSeedCloudWorkspace(userId, email, displayName);
+          const res = await fetchCloudWorkspace(userId, email, displayName);
           if (res.status === "ok") {
             set({
               user: res.user,
@@ -424,12 +418,12 @@ export const useAppStore = create<AppState>()(
             theme: "minimal-paper",
             defaultPaper: "dot",
             noteFont: "sans",
-            user: INITIAL_USER,
-            binders: INITIAL_BINDERS,
-            notes: INITIAL_NOTES,
-            flashcards: INITIAL_FLASHCARDS,
-            focusTasks: INITIAL_FOCUS_TASKS,
-            activeBinderId: INITIAL_BINDERS[0].id,
+            user: createEmptyUserProfile(),
+            binders: [],
+            notes: [],
+            flashcards: [],
+            focusTasks: [],
+            activeBinderId: "",
             blurMode: false,
             revealedBlockIds: [],
             toastMessage: "Đã đăng xuất tài khoản Supabase.",
@@ -1131,29 +1125,30 @@ export const useAppStore = create<AppState>()(
           pushProfilePatch({ unlocked_stickers: allStickers });
         },
 
-        resetDemoData: () =>
+        resetLocalWorkspace: () =>
           set({
             authMode: "guest",
             cloudUserId: null,
             cloudSyncStatus: "local",
             cloudError: null,
+            isAuthenticated: false,
             theme: "minimal-paper",
             defaultPaper: "dot",
             noteFont: "sans",
-            user: INITIAL_USER,
-            binders: INITIAL_BINDERS,
-            notes: INITIAL_NOTES,
-            flashcards: INITIAL_FLASHCARDS,
-            focusTasks: INITIAL_FOCUS_TASKS,
-            activeBinderId: INITIAL_BINDERS[0].id,
+            user: createEmptyUserProfile(),
+            binders: [],
+            notes: [],
+            flashcards: [],
+            focusTasks: [],
+            activeBinderId: "",
             blurMode: false,
             revealedBlockIds: [],
-            toastMessage: "Đã khôi phục dữ liệu mẫu ban đầu.",
+            toastMessage: "Đã đặt lại dữ liệu cục bộ về trạng thái mới.",
           }),
       };
     },
     {
-      name: "gunotes-state-v6",
+      name: "gunotes-state-v7",
       storage: createJSONStorage(() => localStorage),
       skipHydration: true,
       partialize: (state) => ({

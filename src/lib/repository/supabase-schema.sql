@@ -12,12 +12,12 @@ create table if not exists public.profiles (
   default_paper text not null default 'dot',
   note_font text not null default 'sans',
   study_persona text not null default 'flow',
-  streak_days integer not null default 1,
+  streak_days integer not null default 0,
   weekly_focus_minutes integer not null default 0,
   today_focus_minutes integer not null default 0,
-  unlocked_stickers jsonb not null default '["coffee","sparkle","cat","cursor","bookmark","chart"]'::jsonb,
+  unlocked_stickers jsonb not null default '["coffee","sparkle"]'::jsonb,
   focus_tasks jsonb not null default '[]'::jsonb,
-  onboarded boolean not null default true,
+  onboarded boolean not null default false,
   updated_at timestamptz not null default now()
 );
 

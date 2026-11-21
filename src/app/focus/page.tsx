@@ -77,11 +77,15 @@ export default function FocusPage() {
               onChange={(e) => setActiveBinderId(e.target.value)}
               className="rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-3 py-1.5 text-xs font-medium outline-none"
             >
-              {binders.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Đang học: {b.title}
-                </option>
-              ))}
+              {binders.length === 0 ? (
+                <option value="">Chưa có sổ môn học</option>
+              ) : (
+                binders.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    Đang học: {b.title}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -196,33 +200,39 @@ export default function FocusPage() {
             </div>
 
             <div className="mt-3 space-y-2">
-              {focusTasks.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  onClick={() => toggleFocusTask(task.id)}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm transition hover:bg-[var(--bg-desk)]"
-                >
-                  <span
-                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
-                      task.done
-                        ? "border-[var(--accent-ring)] bg-[var(--accent-ring)] text-white"
-                        : "border-[var(--ink-muted)]"
-                    }`}
+              {focusTasks.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-[var(--border-hairline)] px-3 py-3 text-center text-xs text-[var(--ink-muted)]">
+                  Chưa có mục tiêu nào cho phiên này. Thêm mục tiêu nhỏ bên dưới để bắt đầu nhé!
+                </p>
+              ) : (
+                focusTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => toggleFocusTask(task.id)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm transition hover:bg-[var(--bg-desk)]"
                   >
-                    {task.done && <Check className="h-3 w-3" />}
-                  </span>
-                  <span
-                    className={
-                      task.done
-                        ? "text-[var(--ink-muted)] line-through"
-                        : "text-[var(--ink-primary)]"
-                    }
-                  >
-                    {task.label}
-                  </span>
-                </button>
-              ))}
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
+                        task.done
+                          ? "border-[var(--accent-ring)] bg-[var(--accent-ring)] text-white"
+                          : "border-[var(--ink-muted)]"
+                      }`}
+                    >
+                      {task.done && <Check className="h-3 w-3" />}
+                    </span>
+                    <span
+                      className={
+                        task.done
+                          ? "text-[var(--ink-muted)] line-through"
+                          : "text-[var(--ink-primary)]"
+                      }
+                    >
+                      {task.label}
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
 
             <form onSubmit={handleAddTask} className="mt-3 flex gap-2">
