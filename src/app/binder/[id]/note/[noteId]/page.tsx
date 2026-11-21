@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Sparkles, X } from "lucide-react";
+import { ChevronDown, LayoutTemplate, Plus, Sparkles, Undo2, X } from "lucide-react";
 import { BlurtingModal } from "@/components/editor/BlurtingModal";
 import { FormulaComposerModal } from "@/components/editor/FormulaComposerModal";
 import { NoteVisualizeModal } from "@/components/graph/NoteVisualizeModal";
@@ -61,6 +61,7 @@ export default function NoteStudioPage() {
   const addTagToNote = useAppStore((s) => s.addTagToNote);
   const removeTagFromNote = useAppStore((s) => s.removeTagFromNote);
   const addBlockToNote = useAppStore((s) => s.addBlockToNote);
+  const restoreBlock = useAppStore((s) => s.restoreBlock);
   const updateBlock = useAppStore((s) => s.updateBlock);
   const moveBlock = useAppStore((s) => s.moveBlock);
   const deleteBlock = useAppStore((s) => s.deleteBlock);
@@ -72,7 +73,11 @@ export default function NoteStudioPage() {
   const [mobileTab, setMobileTab] = useState<MobileTab>("all");
   const [slashOpen, setSlashOpen] = useState(false);
   const [diagramPickerOpen, setDiagramPickerOpen] = useState(false);
-  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+  const [editingState, setEditingState] = useState<{
+    blockId: string | null;
+    caret: "start" | "end";
+  }>({ blockId: null, caret: "end" });
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [newTagText, setNewTagText] = useState("");
   const [blurtingOpen, setBlurtingOpen] = useState(false);
@@ -80,10 +85,24 @@ export default function NoteStudioPage() {
   const [linkPickerBlockId, setLinkPickerBlockId] = useState<string | null>(
     null
   );
+  const [deletedBlockUndo, setDeletedBlockUndo] = useState<{
+    block: CornellBlock;
+    index: number;
+  } | null>(null);
   const [formulaModal, setFormulaModal] = useState<{
     blockId: string | null;
     initialLatex: string;
   } | null>(null);
+
+  const autoFocusedNoteRef = useRef<string | null>(null);
+
+  const editingBlockId = editingState.blockId;
+  const setEditingBlockId = useCallback(
+    (id: string | null, caret: "start" | "end" = "end") => {
+      setEditingState({ blockId: id, caret });
+    },
+    []
+  );
 
   const binder = binders.find((b) => b.id === binderId);
   const binderNotes = notes.filter((n) => n.binderId === binderId);
@@ -100,6 +119,7 @@ export default function NoteStudioPage() {
     applyHighlightUpdate,
     applyHighlightAction,
     handleUndoHighlight,
+    recordUndoEntry,
     handleTextareaKeyDown,
   } = useNoteHighlighting({
     note,
@@ -109,12 +129,50 @@ export default function NoteStudioPage() {
     showToast,
   });
 
-  // Global keyboard shortcuts ('R' blur, '/' slash, 'Ctrl/Cmd+Z' highlight undo, 'Esc' dismiss)
+  // Reset per-note UI only when navigating to a different note
+  useEffect(() => {
+    setDeletedBlockUndo(null);
+    setTemplateMenuOpen(false);
+  }, [noteId]);
+
+  // Auto-focus fresh blank page once on first mount of that note
+  useEffect(() => {
+    if (!note) return;
+    if (autoFocusedNoteRef.current === note.id) return;
+    autoFocusedNoteRef.current = note.id;
+    if (
+      note.blocks.length === 1 &&
+      note.blocks[0].type === "text" &&
+      note.blocks[0].content === ""
+    ) {
+      setEditingBlockId(note.blocks[0].id, "start");
+    } else {
+      setEditingBlockId(null);
+    }
+  }, [note, setEditingBlockId]);
+
+  // Auto-clear block delete undo bar after 7s
+  useEffect(() => {
+    if (!deletedBlockUndo) return;
+    const timer = window.setTimeout(() => setDeletedBlockUndo(null), 7000);
+    return () => window.clearTimeout(timer);
+  }, [deletedBlockUndo]);
+
+  const handleRestoreDeletedBlock = useCallback(() => {
+    if (!note || !deletedBlockUndo) return;
+    restoreBlock(note.id, deletedBlockUndo.block, deletedBlockUndo.index);
+    setEditingBlockId(deletedBlockUndo.block.id, "end");
+    setDeletedBlockUndo(null);
+    showToast("Đã khôi phục khối vừa xóa!");
+  }, [note, deletedBlockUndo, restoreBlock, setEditingBlockId, showToast]);
+
+  // Global keyboard shortcuts ('R' blur, '/' slash, 'Ctrl/Cmd+Z' undo, 'Esc' dismiss)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setSlashOpen(false);
         setDiagramPickerOpen(false);
+        setTemplateMenuOpen(false);
         setSelectionPopup(null);
         setLinkPickerBlockId(null);
         return;
@@ -126,6 +184,11 @@ export default function NoteStudioPage() {
         e.key.toLowerCase() === "z" &&
         !e.shiftKey
       ) {
+        if (deletedBlockUndo) {
+          e.preventDefault();
+          handleRestoreDeletedBlock();
+          return;
+        }
         if (highlightHistory.length > 0) {
           e.preventDefault();
           handleUndoHighlight();
@@ -142,7 +205,14 @@ export default function NoteStudioPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [toggleBlurMode, highlightHistory.length, handleUndoHighlight, setSelectionPopup]);
+  }, [
+    toggleBlurMode,
+    highlightHistory.length,
+    handleUndoHighlight,
+    deletedBlockUndo,
+    handleRestoreDeletedBlock,
+    setSelectionPopup,
+  ]);
 
   if (!note || !binder) {
     return (
@@ -162,29 +232,87 @@ export default function NoteStudioPage() {
     );
   }
 
-  const handleInsertBlock = (type: BlockType) => {
+  const handleInsertBlock = (type: BlockType, insertAfterBlockId?: string) => {
     const payload = getDefaultBlockPayload(type);
-    addBlockToNote(note.id, {
-      type,
-      cue: payload.cue,
-      content: payload.content,
-      diagram: type === "diagram" ? createDiagramPreset("flowchart") : undefined,
-    });
+    const created = addBlockToNote(
+      note.id,
+      {
+        type,
+        cue: payload.cue,
+        content: payload.content,
+        diagram: type === "diagram" ? createDiagramPreset("flowchart") : undefined,
+      },
+      insertAfterBlockId
+    );
     setSlashOpen(false);
-    showToast(`Đã thêm khối ${SEMANTIC_META[type].badge}`);
+    setEditingBlockId(created.id, "start");
   };
 
-  const handleInsertDiagram = (kind: DiagramData["kind"]) => {
+  const handleInsertDiagram = (
+    kind: DiagramData["kind"],
+    insertAfterBlockId?: string
+  ) => {
     const info = DIAGRAM_PRESET_META[kind];
-    addBlockToNote(note.id, {
-      type: "diagram",
-      title: info.title,
-      cue: info.cue,
-      content: info.title,
-      diagram: createDiagramPreset(kind),
-    });
+    addBlockToNote(
+      note.id,
+      {
+        type: "diagram",
+        title: info.title,
+        cue: info.cue,
+        content: info.title,
+        diagram: createDiagramPreset(kind),
+      },
+      insertAfterBlockId
+    );
     setDiagramPickerOpen(false);
+    setEditingBlockId(null);
     showToast(info.toast);
+  };
+
+  const handleDeleteBlockWithUndo = (targetNoteId: string, blockId: string) => {
+    const idx = note.blocks.findIndex((b) => b.id === blockId);
+    const target = idx !== -1 ? note.blocks[idx] : undefined;
+    if (editingBlockId === blockId) setEditingBlockId(null);
+    deleteBlock(targetNoteId, blockId);
+    if (target) {
+      setDeletedBlockUndo({ block: target, index: idx });
+    }
+  };
+
+  const handleFocusAdjacent = (blockId: string, dir: "prev" | "next") => {
+    const idx = note.blocks.findIndex((b) => b.id === blockId);
+    if (idx === -1) return;
+    const step = dir === "prev" ? -1 : 1;
+    for (let i = idx + step; i >= 0 && i < note.blocks.length; i += step) {
+      if (note.blocks[i].type !== "diagram") {
+        setEditingBlockId(note.blocks[i].id, dir === "prev" ? "end" : "start");
+        return;
+      }
+    }
+  };
+
+  const handleDeleteEmptyAndFocusPrev = (blockId: string) => {
+    const idx = note.blocks.findIndex((b) => b.id === blockId);
+    if (idx === -1) return;
+    let prevTextBlockId: string | null = null;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (note.blocks[i].type !== "diagram") {
+        prevTextBlockId = note.blocks[i].id;
+        break;
+      }
+    }
+    deleteBlock(note.id, blockId);
+    setEditingBlockId(prevTextBlockId, "end");
+  };
+
+  const handleClickPaperTail = () => {
+    if (blurMode || brushMode) return;
+    const last = note.blocks[note.blocks.length - 1];
+    if (last && last.type !== "diagram" && last.content.trim() === "") {
+      setEditingBlockId(last.id, "end");
+      return;
+    }
+    handleInsertBlock("text");
   };
 
   const handleCreateFlashcardFromBlock = (
@@ -220,18 +348,21 @@ export default function NoteStudioPage() {
         const nextContent =
           hasDisplay && asDisplayBlock
             ? target.content.replace(/\$\$[\s\S]+?\$\$/, formatted)
-            : `${target.content.trim()}\n${formatted}`;
+            : target.content.trim().length > 0
+            ? `${target.content.trim()}\n${formatted}`
+            : formatted;
         updateBlock(note.id, target.id, { content: nextContent });
         showToast("Đã cập nhật công thức KaTeX!");
         return;
       }
     }
 
-    addBlockToNote(note.id, {
+    const created = addBlockToNote(note.id, {
       type: "formula",
       cue: "Công thức / Biểu thức quan trọng?",
       content: formatted,
     });
+    setEditingBlockId(created.id, "end");
     showToast("Đã chèn khối công thức mới!");
   };
 
@@ -239,7 +370,10 @@ export default function NoteStudioPage() {
   const revealedCount = revealedBlockIds.filter((id) =>
     note.blocks.some((b) => b.id === id)
   ).length;
-  const activeTemplate: NoteTemplate = note.template ?? "cornell";
+  const activeTemplate: NoteTemplate = note.template ?? "freeform";
+  const activeTemplateMeta =
+    NOTE_TEMPLATE_META.find((t) => t.id === activeTemplate) ??
+    NOTE_TEMPLATE_META[0];
   const selectedBlock = selectionPopup
     ? note.blocks.find((b) => b.id === selectionPopup.blockId)
     : undefined;
@@ -309,7 +443,7 @@ export default function NoteStudioPage() {
                 ))}
               </div>
 
-              {/* Note Title, Tags & Corner Sticker */}
+              {/* Note Title, Compact Template Selector, Tags & Corner Sticker */}
               <div className="flex items-start justify-between gap-3 border-b border-[var(--border-hairline)] pb-4">
                 <div className="min-w-0 flex-1">
                   <AutoResizeTextarea
@@ -321,6 +455,65 @@ export default function NoteStudioPage() {
                     placeholder="Tiêu đề trang ghi chú..."
                   />
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-[var(--ink-muted)]">
+                    {/* Compact Template Dropdown Pill */}
+                    <div className="no-print relative">
+                      <button
+                        type="button"
+                        onClick={() => setTemplateMenuOpen((v) => !v)}
+                        title={activeTemplateMeta.shortDesc}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-0.5 font-semibold text-[var(--ink-primary)] transition hover:border-[var(--ink-primary)]"
+                      >
+                        <LayoutTemplate className="h-3 w-3 text-[var(--ink-muted)]" />
+                        <span>{activeTemplateMeta.label}</span>
+                        <ChevronDown className="h-3 w-3 text-[var(--ink-muted)]" />
+                      </button>
+
+                      {templateMenuOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-20"
+                            onClick={() => setTemplateMenuOpen(false)}
+                          />
+                          <div className="paper-shadow absolute top-8 left-0 z-30 w-72 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5">
+                            <div className="px-2.5 py-1 text-[10px] font-bold tracking-wider text-[var(--ink-muted)] uppercase">
+                              Chọn bố cục trang giấy
+                            </div>
+                            {NOTE_TEMPLATE_META.map((tpl) => {
+                              const active = activeTemplate === tpl.id;
+                              return (
+                                <button
+                                  key={tpl.id}
+                                  type="button"
+                                  onClick={() => {
+                                    updateNote(note.id, { template: tpl.id });
+                                    setTemplateMenuOpen(false);
+                                    showToast(`Đã đổi sang ${tpl.label}`);
+                                  }}
+                                  className={`block w-full rounded-xl px-2.5 py-2 text-left font-sans transition ${
+                                    active
+                                      ? "bg-[var(--bg-desk)] text-[var(--ink-primary)]"
+                                      : "hover:bg-[var(--bg-desk)]/60"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between text-xs font-semibold">
+                                    <span>{tpl.label}</span>
+                                    {active && (
+                                      <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+                                        Đang dùng
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-[var(--ink-muted)]">
+                                    {tpl.shortDesc}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     {note.tags.map((tag) => (
                       <span
                         key={tag}
@@ -383,7 +576,7 @@ export default function NoteStudioPage() {
                     )}
 
                     <span className="rounded-full bg-[var(--bg-desk)] px-2 py-0.5 whitespace-nowrap">
-                      {note.blocks.length} khối kiến thức
+                      {note.blocks.length} khối
                     </span>
                   </div>
                 </div>
@@ -405,41 +598,14 @@ export default function NoteStudioPage() {
                 </button>
               </div>
 
-              {/* Template Switcher Strip */}
-              <div className="no-print mt-4 flex flex-wrap items-center justify-between gap-2 border-b border-dashed border-[var(--border-hairline)] pb-3.5">
-                <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
-                  Phương pháp trình bày:
-                </span>
-                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-                  {NOTE_TEMPLATE_META.map((tpl) => {
-                    const active = activeTemplate === tpl.id;
-                    return (
-                      <button
-                        key={tpl.id}
-                        type="button"
-                        title={tpl.shortDesc}
-                        onClick={() => {
-                          updateNote(note.id, { template: tpl.id });
-                          showToast(`Đã đổi sang bố cục ${tpl.label}`);
-                        }}
-                        className={`shrink-0 rounded-full border px-3 py-1 font-mono text-[11px] font-medium transition ${
-                          active
-                            ? "border-[var(--ink-primary)] bg-[var(--accent-primary)] text-[var(--accent-primary-fg)]"
-                            : "border-[var(--border-hairline)] bg-[var(--bg-elevated)]/70 text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
-                        }`}
-                      >
-                        {tpl.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
               <NoteTemplateLayouts
                 noteId={note.id}
                 activeTemplate={activeTemplate}
                 mobileTab={mobileTab}
                 blocks={note.blocks}
+                blurMode={blurMode}
+                brushMode={brushMode}
+                onClickPaperTail={handleClickPaperTail}
                 onUpdateBlock={updateBlock}
                 renderCard={(block, options) => (
                   <SemanticBlockCard
@@ -447,9 +613,11 @@ export default function NoteStudioPage() {
                     block={block}
                     isFirst={note.blocks[0]?.id === block.id}
                     isLast={note.blocks[note.blocks.length - 1]?.id === block.id}
+                    isOnlyBlock={note.blocks.length <= 1}
                     blurMode={blurMode}
                     isRevealed={revealedBlockIds.includes(block.id)}
                     isEditing={editingBlockId === block.id}
+                    focusCaret={editingState.caret}
                     brushMode={brushMode}
                     brushColor={brushColor}
                     linkableOtherNotes={linkableOtherNotes}
@@ -462,9 +630,18 @@ export default function NoteStudioPage() {
                     }
                     onMoveBlock={moveBlock}
                     onUpdateBlock={updateBlock}
-                    onDeleteBlock={deleteBlock}
+                    onDeleteBlock={handleDeleteBlockWithUndo}
+                    onInsertBlockAfter={(afterBlockId, type = "text") =>
+                      handleInsertBlock(type, afterBlockId)
+                    }
+                    onInsertDiagramAfter={(afterBlockId, kind) =>
+                      handleInsertDiagram(kind, afterBlockId)
+                    }
+                    onFocusAdjacent={handleFocusAdjacent}
+                    onDeleteEmptyAndFocusPrev={handleDeleteEmptyAndFocusPrev}
                     onToggleRevealBlock={toggleRevealBlock}
                     onBrushApply={applyHighlightUpdate}
+                    onRecordUndo={recordUndoEntry}
                     onTextareaKeyDown={handleTextareaKeyDown}
                     onWikiLinkInserted={(targetTitle) =>
                       showToast(`Đã chèn liên kết [[${targetTitle}]]`)
@@ -500,7 +677,39 @@ export default function NoteStudioPage() {
             onClosePopup={() => setSelectionPopup(null)}
           />
 
+          {/* 1-tap Block Delete Undo Pill */}
+          {deletedBlockUndo && (
+            <div className="no-print pointer-events-none fixed right-0 bottom-20 left-0 z-40 flex justify-center px-3 lg:left-[232px]">
+              <div className="paper-shadow pointer-events-auto flex items-center gap-3 rounded-full border border-[var(--ink-primary)] bg-[var(--bg-elevated)] px-3.5 py-1.5 text-xs">
+                <span className="text-[var(--ink-muted)]">
+                  Đã xóa khối{" "}
+                  <strong className="text-[var(--ink-primary)]">
+                    {deletedBlockUndo.block.title ??
+                      SEMANTIC_META[deletedBlockUndo.block.type].badge}
+                  </strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRestoreDeletedBlock}
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-primary)] px-2.5 py-1 font-mono text-[11px] font-semibold text-[var(--accent-primary-fg)]"
+                >
+                  <Undo2 className="h-3 w-3" />
+                  <span>Hoàn tác</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletedBlockUndo(null)}
+                  className="rounded-full p-0.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
+                  aria-label="Đóng"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           <NoteBottomToolbar
+            isEditingAny={editingBlockId !== null}
             slashOpen={slashOpen}
             setSlashOpen={setSlashOpen}
             diagramPickerOpen={diagramPickerOpen}
@@ -520,8 +729,9 @@ export default function NoteStudioPage() {
             }}
             highlightHistoryCount={highlightHistory.length}
             onUndoHighlight={handleUndoHighlight}
-            onInsertBlock={handleInsertBlock}
-            onInsertDiagram={handleInsertDiagram}
+            onQuickWrite={handleClickPaperTail}
+            onInsertBlock={(t) => handleInsertBlock(t)}
+            onInsertDiagram={(kind) => handleInsertDiagram(kind)}
             onOpenNewFormula={() =>
               setFormulaModal({
                 blockId: null,

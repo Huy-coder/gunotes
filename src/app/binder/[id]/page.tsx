@@ -90,10 +90,10 @@ export default function BinderIndexPage() {
   const dueCount = binderFlashcards.filter((f) => f.isDue).length;
   const primarySticker = binder.stickers[0]?.stickerId;
 
-  const handleCreateNote = (template: NoteTemplate = "cornell") => {
+  const handleCreateNote = (template: NoteTemplate = "freeform") => {
     const created = addNote(binder.id, undefined, undefined, template);
     const tplLabel =
-      NOTE_TEMPLATE_META.find((t) => t.id === template)?.label ?? "Cornell";
+      NOTE_TEMPLATE_META.find((t) => t.id === template)?.label ?? "Giấy tự do";
     setTemplatePickerOpen(false);
     showToast(`Đã mở trang ghi chú theo mẫu ${tplLabel}`);
     router.push(`/binder/${binder.id}/note/${created.id}`);

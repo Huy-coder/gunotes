@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  MoreHorizontal,
   Network,
   Palette,
   PanelLeftOpen,
@@ -61,6 +62,8 @@ export function NoteStudioHeader({
   onUpdatePaper: (paperStyle: PaperStyle) => void;
   onOpenCustomize: () => void;
 }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
   return (
     <header className="no-print sticky top-0 z-30 border-b border-[var(--border-hairline)] bg-[var(--bg-paper)]/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 py-2.5 sm:px-6">
@@ -81,7 +84,7 @@ export function NoteStudioHeader({
             className="inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-1 text-xs font-medium whitespace-nowrap text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] sm:px-2"
           >
             <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-            <span className="max-w-[74px] truncate sm:max-w-[180px]">
+            <span className="max-w-[110px] truncate sm:max-w-[180px]">
               {binder.title}
             </span>
           </Link>
@@ -99,7 +102,7 @@ export function NoteStudioHeader({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+        <div className="relative flex shrink-0 items-center gap-1.5">
           <div className="hidden items-center rounded-full border border-[var(--border-hairline)] bg-[var(--bg-desk)] p-0.5 lg:flex">
             {PAPER_STYLE_META.map((ps) => (
               <button
@@ -130,19 +133,9 @@ export function NoteStudioHeader({
 
           <button
             type="button"
-            onClick={onOpenBlurting}
-            title="Xả não 5 phút & đối chiếu bản gốc (Blurting)"
-            className="flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap text-[var(--ink-primary)] transition hover:border-[var(--ink-muted)]"
-          >
-            <Brain className="h-3.5 w-3.5 shrink-0" />
-            <span className="hidden sm:inline">Xả não</span>
-          </button>
-
-          <button
-            type="button"
             onClick={onToggleBlur}
             title="Che để nhớ (phím R)"
-            className={`flex items-center gap-1 rounded-full border px-2 py-1.5 font-mono text-[11px] font-semibold whitespace-nowrap transition sm:px-2.5 ${
+            className={`flex items-center gap-1 rounded-full border px-2.5 py-1.5 font-mono text-[11px] font-semibold whitespace-nowrap transition ${
               blurMode
                 ? "border-[var(--ink-primary)] bg-[var(--accent-primary)] text-[var(--accent-primary-fg)]"
                 : "border-[var(--border-hairline)] bg-[var(--bg-elevated)] text-[var(--ink-primary)] hover:border-[var(--ink-muted)]"
@@ -174,9 +167,20 @@ export function NoteStudioHeader({
             </button>
           )}
 
+          {/* Desktop-only secondary actions */}
+          <button
+            type="button"
+            onClick={onOpenBlurting}
+            title="Xả não 5 phút & đối chiếu bản gốc (Blurting)"
+            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap text-[var(--ink-primary)] transition hover:border-[var(--ink-muted)] lg:flex"
+          >
+            <Brain className="h-3.5 w-3.5 shrink-0" />
+            <span>Xả não</span>
+          </button>
+
           <Link
             href="/focus"
-            className="flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1.5 font-mono text-[11px] font-medium tabular-nums sm:gap-1.5 sm:px-2.5"
+            className="hidden items-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium tabular-nums lg:flex"
             title={`Mở Phòng Tập trung (${formatTimer(secondsLeft)})`}
           >
             <Timer
@@ -186,14 +190,14 @@ export function NoteStudioHeader({
                   : "text-[var(--ink-muted)]"
               }`}
             />
-            <span className="hidden sm:inline">{formatTimer(secondsLeft)}</span>
+            <span>{formatTimer(secondsLeft)}</span>
           </Link>
 
           <button
             type="button"
             onClick={() => window.print()}
             title="Xuất PDF / In khổ giấy"
-            className="hidden rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] sm:inline-flex"
+            className="hidden rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] lg:inline-flex"
           >
             <Printer className="h-3.5 w-3.5" />
           </button>
@@ -202,11 +206,102 @@ export function NoteStudioHeader({
             type="button"
             onClick={onOpenCustomize}
             title="Độ trang & Sticker"
-            className="flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2 py-1.5 text-[11px] font-medium hover:border-[var(--ink-muted)] sm:px-2.5"
+            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 text-[11px] font-medium hover:border-[var(--ink-muted)] lg:flex"
           >
             <Palette className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Độ trang</span>
+            <span>Độ trang</span>
           </button>
+
+          {/* Compact Overflow Menu for Mobile / Tablet */}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-label="Thêm công cụ"
+            className="inline-flex items-center justify-center rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-primary)] lg:hidden"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+
+          {moreOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-30 lg:hidden"
+                onClick={() => setMoreOpen(false)}
+              />
+              <div className="paper-shadow absolute top-11 right-0 z-40 w-64 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-2 lg:hidden">
+                <div className="px-2 py-1 font-mono text-[10px] font-semibold text-[var(--ink-muted)] uppercase">
+                  Kiểu mặt giấy
+                </div>
+                <div className="mb-2 grid grid-cols-2 gap-1 px-1">
+                  {PAPER_STYLE_META.map((ps) => (
+                    <button
+                      key={ps.id}
+                      type="button"
+                      onClick={() => {
+                        onUpdatePaper(ps.id);
+                        setMoreOpen(false);
+                      }}
+                      className={`rounded-lg border px-2 py-1.5 text-left text-xs font-medium ${
+                        note.paperStyle === ps.id
+                          ? "border-[var(--ink-primary)] bg-[var(--bg-paper)] text-[var(--ink-primary)]"
+                          : "border-[var(--border-hairline)] text-[var(--ink-muted)]"
+                      }`}
+                    >
+                      {ps.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-[var(--border-hairline)] pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onOpenBlurting();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <Brain className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <span>Xả não 5 phút (Blurting)</span>
+                  </button>
+                  <Link
+                    href="/focus"
+                    onClick={() => setMoreOpen(false)}
+                    className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Timer className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                      <span>Phòng Tập trung</span>
+                    </span>
+                    <span className="font-mono text-[11px] tabular-nums text-[var(--ink-muted)]">
+                      {formatTimer(secondsLeft)}
+                    </span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onOpenCustomize();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <Palette className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <span>Độ trang & Sticker</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      window.print();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <Printer className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <span>Xuất PDF / In khổ giấy</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

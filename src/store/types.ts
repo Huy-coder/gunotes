@@ -133,7 +133,12 @@ export interface NoteSlice {
   duplicateNote: (noteId: string) => Note | null;
   addTagToNote: (noteId: string, rawTag: string) => void;
   removeTagFromNote: (noteId: string, tag: string) => void;
-  addBlockToNote: (noteId: string, block: Omit<CornellBlock, "id">) => void;
+  addBlockToNote: (
+    noteId: string,
+    block: Omit<CornellBlock, "id">,
+    insertAfterBlockId?: string
+  ) => CornellBlock;
+  restoreBlock: (noteId: string, block: CornellBlock, index: number) => void;
   updateBlock: (
     noteId: string,
     blockId: string,

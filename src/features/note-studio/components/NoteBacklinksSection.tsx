@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { Link2, Network } from "lucide-react";
+import { Link2, Network, Plus } from "lucide-react";
+import { AutoResizeTextarea } from "@/components/ui/AutoResizeTextarea";
 import type { MobileTab } from "@/features/note-studio/utils/note-studio-helpers";
 import type { getBacklinks } from "@/lib/wiki-links";
 import type { Note, NoteTemplate } from "@/types/study";
@@ -22,33 +23,51 @@ export function NoteBacklinksSection({
   onUpdateSummary: (summary: string) => void;
   onOpenVisualize: () => void;
 }) {
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+
   const showSummary =
     activeTemplate !== "cornell" ||
     mobileTab === "all" ||
     mobileTab === "summary";
 
+  const hasSummaryText = note.summary.trim().length > 0;
+  const shouldShowSummaryBox =
+    activeTemplate !== "freeform" || hasSummaryText || summaryExpanded;
+
   return (
     <>
-      {showSummary && (
-        <div className="mt-7 border-t border-[var(--border-hairline)] pt-4">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
-              {activeTemplate === "feynman"
-                ? "GIẢI THÍCH ĐỜI THƯỜNG NHƯ DẠY NGƯỜI MỚI"
-                : "TÓM TẮT 3 DÒNG CUỐI TRANG"}
-            </span>
-            <span className="font-mono text-[10px] text-[var(--ink-muted)]">
-              Tự diễn đạt lại
-            </span>
+      {showSummary &&
+        (shouldShowSummaryBox ? (
+          <div className="mt-7 border-t border-[var(--border-hairline)] pt-4">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
+                {activeTemplate === "feynman"
+                  ? "GIẢI THÍCH ĐỜI THƯỜNG NHƯ DẠY NGƯỜI MỚI"
+                  : "TÓM TẮT 3 DÒNG CUỐI TRANG"}
+              </span>
+              <span className="font-mono text-[10px] text-[var(--ink-muted)]">
+                Tự diễn đạt lại
+              </span>
+            </div>
+            <AutoResizeTextarea
+              value={note.summary}
+              onChange={(e) => onUpdateSummary(e.target.value)}
+              placeholder="Tóm tắt 2–3 câu cốt lõi sau buổi học..."
+              className="w-full rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)]/65 p-3 text-[16px] leading-relaxed outline-none placeholder:text-[var(--ink-muted)]/60 focus:border-[var(--ink-primary)] sm:text-sm"
+            />
           </div>
-          <textarea
-            rows={2}
-            value={note.summary}
-            onChange={(e) => onUpdateSummary(e.target.value)}
-            className="w-full resize-none rounded-xl border border-[var(--border-hairline)] bg-[var(--bg-elevated)]/65 p-3 text-sm leading-relaxed outline-none focus:border-[var(--ink-primary)]"
-          />
-        </div>
-      )}
+        ) : (
+          <div className="no-print mt-4 border-t border-dashed border-[var(--border-hairline)] pt-3">
+            <button
+              type="button"
+              onClick={() => setSummaryExpanded(true)}
+              className="inline-flex items-center gap-1 font-mono text-[11px] font-medium text-[var(--ink-muted)] transition hover:text-[var(--ink-primary)]"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Thêm tóm tắt cuối trang</span>
+            </button>
+          </div>
+        ))}
 
       {backlinks.length > 0 && (
         <div className="no-print mt-6 rounded-2xl border border-dashed border-[var(--border-hairline)] bg-[var(--bg-elevated)]/60 p-4">

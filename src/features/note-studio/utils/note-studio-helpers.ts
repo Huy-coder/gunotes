@@ -32,35 +32,117 @@ export function getDefaultBlockPayload(type: BlockType): {
   cue: string;
   content: string;
 } {
-  const defaults: Record<BlockType, { cue: string; content: string }> = {
-    def: {
-      cue: "Khái niệm / Bản chất cốt lõi là gì?",
-      content:
-        "Nhập định nghĩa ngắn gọn bằng ==y:từ khóa chính== (bôi đen để tô thêm màu).",
-    },
-    formula: {
-      cue: "Công thức hoặc quy tắc ghi nhớ?",
-      content: "$$f(x) = \\frac{a}{b}$$",
-    },
-    example: {
-      cue: "Ví dụ minh họa thực tế?",
-      content: "Tình huống áp dụng nhanh...",
-    },
-    trap: {
-      cue: "Bẫy hay mất điểm khi làm bài?",
-      content: "Cảnh báo ==p:lỗi sai thường gặp==...",
-    },
-    text: {
-      cue: "Ý bổ sung",
-      content: "Ghi chú thêm tại đây...",
-    },
-    diagram: {
+  if (type === "diagram") {
+    return {
       cue: "Sơ đồ trực quan minh họa?",
       content: "Sơ đồ luồng từng bước",
-    },
-  };
-  return defaults[type];
+    };
+  }
+  return { cue: "", content: "" };
 }
+
+export function getBlockPlaceholder(type: BlockType): string {
+  const placeholders: Record<BlockType, string> = {
+    text: "Bắt đầu viết lên trang giấy... (gõ / để chèn khối hoặc sơ đồ)",
+    def: "Viết định nghĩa cốt lõi bằng ngôn từ của bạn...",
+    formula: "Nhập công thức $...$ hoặc bấm fx bên dưới...",
+    example: "Ghi ví dụ minh họa hoặc bài tập mẫu...",
+    trap: "Ghi lỗi sai hay mất điểm khi làm bài...",
+    diagram: "Mô tả sơ đồ...",
+  };
+  return placeholders[type];
+}
+
+export interface SlashCommandItem {
+  id: string;
+  label: string;
+  description: string;
+  keywords: string[];
+  action:
+    | { kind: "block"; blockType: BlockType }
+    | { kind: "diagram"; diagramKind: DiagramData["kind"] }
+    | { kind: "formula" };
+}
+
+export const SLASH_COMMANDS: SlashCommandItem[] = [
+  {
+    id: "text",
+    label: "Chữ thường",
+    description: "Viết tự do lên trang giấy",
+    keywords: ["chu", "text", "note", "ghi chu", "thuong"],
+    action: { kind: "block", blockType: "text" },
+  },
+  {
+    id: "def",
+    label: "Định nghĩa",
+    description: "Khái niệm cốt lõi & bản chất",
+    keywords: ["def", "dn", "dinh nghia", "khai niem"],
+    action: { kind: "block", blockType: "def" },
+  },
+  {
+    id: "formula",
+    label: "Công thức",
+    description: "Quy tắc & công thức KaTeX",
+    keywords: ["formula", "ct", "cong thuc", "toan"],
+    action: { kind: "block", blockType: "formula" },
+  },
+  {
+    id: "fx",
+    label: "Bàn phím toán fx",
+    description: "Mở trình soạn công thức trực quan",
+    keywords: ["fx", "latex", "katex", "math", "sigma"],
+    action: { kind: "formula" },
+  },
+  {
+    id: "example",
+    label: "Ví dụ",
+    description: "Bài tập mẫu & minh họa",
+    keywords: ["ex", "vd", "vi du", "bai tap"],
+    action: { kind: "block", blockType: "example" },
+  },
+  {
+    id: "trap",
+    label: "Bẫy hay sai",
+    description: "Lưu ý dễ mất điểm khi thi",
+    keywords: ["trap", "bay", "loi", "sai"],
+    action: { kind: "block", blockType: "trap" },
+  },
+  {
+    id: "flowchart",
+    label: "Sơ đồ Luồng",
+    description: "Chuỗi bước tiến trình (Flowchart)",
+    keywords: ["flow", "luong", "quy trinh", "so do"],
+    action: { kind: "diagram", diagramKind: "flowchart" },
+  },
+  {
+    id: "graph",
+    label: "Sơ đồ Nhánh Đa tầng",
+    description: "Canvas Zoom / Pan & nối chéo",
+    keywords: ["graph", "mindmap", "nhanh", "canvas"],
+    action: { kind: "diagram", diagramKind: "graph" },
+  },
+  {
+    id: "venn",
+    label: "Biểu đồ Venn",
+    description: "So sánh Giống & Khác nhau",
+    keywords: ["venn", "so sanh"],
+    action: { kind: "diagram", diagramKind: "venn" },
+  },
+  {
+    id: "tree",
+    label: "Sơ đồ Cây",
+    description: "Phân loại nhánh hoặc tóm tắt chương",
+    keywords: ["tree", "cay", "phan loai"],
+    action: { kind: "diagram", diagramKind: "tree" },
+  },
+  {
+    id: "spider",
+    label: "Sơ đồ Mạng nhện",
+    description: "Tâm chủ đề tỏa từ khóa",
+    keywords: ["spider", "mang nhen"],
+    action: { kind: "diagram", diagramKind: "spider" },
+  },
+];
 
 export const DIAGRAM_PRESET_META: Record<
   DiagramData["kind"],

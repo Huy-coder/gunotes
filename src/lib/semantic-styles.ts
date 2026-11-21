@@ -13,6 +13,7 @@ export const NOTE_TEMPLATE_META: Array<{
   label: string;
   shortDesc: string;
 }> = [
+  { id: "freeform", label: "Giấy tự do", shortDesc: "Viết thẳng lên trang giấy, không chia khung gò bó" },
   { id: "cornell", label: "Cornell", shortDesc: "2 cột Từ khóa + Nội dung + Tóm tắt" },
   { id: "outline", label: "Outline", shortDesc: "Dàn ý phân cấp gõ nhanh" },
   { id: "boxing", label: "Boxing", shortDesc: "Thẻ khối độc lập cho tư duy hình ảnh" },

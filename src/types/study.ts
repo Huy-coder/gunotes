@@ -11,6 +11,7 @@ export type BinderCoverPattern = PaperStyle;
 export type BlockType = "def" | "formula" | "example" | "trap" | "text" | "diagram";
 
 export type NoteTemplate =
+  | "freeform"
   | "cornell"
   | "outline"
   | "boxing"

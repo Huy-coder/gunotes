@@ -48,25 +48,23 @@ export function createNoteSlice(
         id: generateUuid(),
         binderId,
         title: title?.trim() || "Trang ghi chú mới",
-        template: template ?? "cornell",
+        template: template ?? "freeform",
         paperStyle: paperStyle ?? state.defaultPaper,
-        tags: ["#ghi-chu-moi"],
-        headerStickerId: "sparkle",
+        tags: [],
+        headerStickerId: null,
         updatedAt: "Vừa xong",
         updatedMinutesAgo: 0,
         blocks: [
           {
-            id: `blk-${Date.now()}-1`,
-            cue: "Ý chính hoặc câu hỏi gợi nhớ đầu tiên?",
-            type: "def",
-            title: "ĐỊNH NGHĨA",
-            content:
-              "Ghi ngắn gọn ==từ khóa cốt lõi== bằng ngôn ngữ của bạn. Dùng dấu ==...== để tô highlight vàng.",
+            id: `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            cue: "",
+            type: "text",
+            title: "GHI CHÚ",
+            content: "",
             blurrable: true,
           },
         ],
-        summary:
-          "Tóm tắt lại bài học trong 2–3 câu sau khi kết thúc buổi học để nhớ sâu hơn.",
+        summary: "",
       };
       set((s) => ({
         notes: [created, ...s.notes],
@@ -227,19 +225,50 @@ export function createNoteSlice(
       }));
     },
 
-    addBlockToNote: (noteId, block) => {
+    addBlockToNote: (noteId, block, insertAfterBlockId) => {
       const newBlock: CornellBlock = {
         ...block,
-        id: `blk-${Date.now()}`,
+        id: `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         title: block.title ?? BLOCK_DEFAULT_TITLE[block.type],
         blurrable: true,
       };
-      patchNoteById(noteId, (n) => ({
-        ...n,
-        blocks: [...n.blocks, newBlock],
-        updatedAt: "Vừa lưu",
-        updatedMinutesAgo: 0,
-      }));
+      patchNoteById(noteId, (n) => {
+        if (insertAfterBlockId) {
+          const idx = n.blocks.findIndex((b) => b.id === insertAfterBlockId);
+          if (idx !== -1) {
+            const nextBlocks = [...n.blocks];
+            nextBlocks.splice(idx + 1, 0, newBlock);
+            return {
+              ...n,
+              blocks: nextBlocks,
+              updatedAt: "Vừa lưu",
+              updatedMinutesAgo: 0,
+            };
+          }
+        }
+        return {
+          ...n,
+          blocks: [...n.blocks, newBlock],
+          updatedAt: "Vừa lưu",
+          updatedMinutesAgo: 0,
+        };
+      });
+      return newBlock;
+    },
+
+    restoreBlock: (noteId, block, index) => {
+      patchNoteById(noteId, (n) => {
+        if (n.blocks.some((b) => b.id === block.id)) return n;
+        const clamped = Math.max(0, Math.min(index, n.blocks.length));
+        const nextBlocks = [...n.blocks];
+        nextBlocks.splice(clamped, 0, block);
+        return {
+          ...n,
+          blocks: nextBlocks,
+          updatedAt: "Vừa lưu",
+          updatedMinutesAgo: 0,
+        };
+      });
     },
 
     updateBlock: (noteId, blockId, patch) => {

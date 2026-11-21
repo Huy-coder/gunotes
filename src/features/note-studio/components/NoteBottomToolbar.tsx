@@ -4,7 +4,8 @@ import React from "react";
 import {
   GitBranch,
   Highlighter,
-  Plus,
+  Layers,
+  PenLine,
   Sigma,
   Sparkles,
   Undo2,
@@ -13,6 +14,7 @@ import { SEMANTIC_META } from "@/lib/semantic-styles";
 import type { BlockType, DiagramData } from "@/types/study";
 
 export function NoteBottomToolbar({
+  isEditingAny,
   slashOpen,
   setSlashOpen,
   diagramPickerOpen,
@@ -21,11 +23,13 @@ export function NoteBottomToolbar({
   onToggleBrushMode,
   highlightHistoryCount,
   onUndoHighlight,
+  onQuickWrite,
   onInsertBlock,
   onInsertDiagram,
   onOpenNewFormula,
   onOpenCustomize,
 }: {
+  isEditingAny: boolean;
   slashOpen: boolean;
   setSlashOpen: React.Dispatch<React.SetStateAction<boolean>>;
   diagramPickerOpen: boolean;
@@ -34,6 +38,7 @@ export function NoteBottomToolbar({
   onToggleBrushMode: () => void;
   highlightHistoryCount: number;
   onUndoHighlight: () => void;
+  onQuickWrite: () => void;
   onInsertBlock: (type: BlockType) => void;
   onInsertDiagram: (kind: DiagramData["kind"]) => void;
   onOpenNewFormula: () => void;
@@ -46,7 +51,7 @@ export function NoteBottomToolbar({
           <div className="px-3 py-1.5 font-mono text-[10px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
             Chèn khối kiến thức mới (/)
           </div>
-          {(["def", "formula", "example", "trap", "text"] as BlockType[]).map(
+          {(["text", "def", "formula", "example", "trap"] as BlockType[]).map(
             (t) => {
               const meta = SEMANTIC_META[t];
               return (
@@ -130,43 +135,64 @@ export function NoteBottomToolbar({
         </div>
       )}
 
-      <div className="no-print pointer-events-none fixed right-0 bottom-4 left-0 z-30 flex justify-center px-3 lg:left-[232px]">
+      <div
+        className={`no-print pointer-events-none fixed right-0 bottom-4 left-0 z-30 justify-center px-3 lg:left-[232px] ${
+          isEditingAny ? "hidden sm:flex" : "flex"
+        }`}
+      >
         <div className="paper-shadow pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)]/95 px-2.5 py-1.5 backdrop-blur-md sm:gap-2 sm:px-3.5">
+          <button
+            type="button"
+            onClick={onQuickWrite}
+            title="Thêm dòng viết tiếp ngay lập tức"
+            className="flex items-center gap-1.5 rounded-full bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary-fg)] transition hover:opacity-90"
+          >
+            <PenLine className="h-3.5 w-3.5" />
+            <span>Viết</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
               setSlashOpen((v) => !v);
               setDiagramPickerOpen(false);
             }}
-            className="flex items-center gap-1 rounded-full bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary-fg)] transition hover:opacity-90"
+            title="Chèn khối ngữ nghĩa (/)"
+            className={`flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition ${
+              slashOpen
+                ? "border-[var(--ink-primary)] bg-[var(--bg-desk)] text-[var(--ink-primary)]"
+                : "border-[var(--border-hairline)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
+            }`}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Layers className="h-3.5 w-3.5" />
             <span>Khối</span>
           </button>
 
-          <div className="mx-0.5 h-4 w-[1px] bg-[var(--border-hairline)]" />
+          <div className="mx-0.5 hidden h-4 w-[1px] bg-[var(--border-hairline)] sm:block" />
 
-          {(["def", "formula", "example", "trap"] as BlockType[]).map((t) => {
-            const meta = SEMANTIC_META[t];
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => onInsertBlock(t)}
-                title={`Thêm khối ${meta.badge}`}
-                className="flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-110"
-                style={{
-                  backgroundColor: meta.bgVar,
-                  borderColor: meta.borderVar,
-                }}
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: meta.borderVar }}
-                />
-              </button>
-            );
-          })}
+          <div className="hidden items-center gap-1.5 sm:flex">
+            {(["def", "formula", "example", "trap"] as BlockType[]).map((t) => {
+              const meta = SEMANTIC_META[t];
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => onInsertBlock(t)}
+                  title={`Thêm khối ${meta.badge}`}
+                  className="flex h-7 w-7 items-center justify-center rounded-full border transition hover:scale-110"
+                  style={{
+                    backgroundColor: meta.bgVar,
+                    borderColor: meta.borderVar,
+                  }}
+                >
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: meta.borderVar }}
+                  />
+                </button>
+              );
+            })}
+          </div>
 
           <div className="mx-0.5 h-4 w-[1px] bg-[var(--border-hairline)]" />
 
@@ -230,7 +256,7 @@ export function NoteBottomToolbar({
           <button
             type="button"
             onClick={onOpenCustomize}
-            className="flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)]"
+            className="hidden items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] sm:flex"
             title="Đổi sticker & giấy"
           >
             <Sparkles className="h-3.5 w-3.5" />

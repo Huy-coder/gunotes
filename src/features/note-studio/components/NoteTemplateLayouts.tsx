@@ -11,6 +11,9 @@ export function NoteTemplateLayouts({
   activeTemplate,
   mobileTab,
   blocks,
+  blurMode,
+  brushMode,
+  onClickPaperTail,
   onUpdateBlock,
   renderCard,
 }: {
@@ -18,6 +21,9 @@ export function NoteTemplateLayouts({
   activeTemplate: NoteTemplate;
   mobileTab: MobileTab;
   blocks: CornellBlock[];
+  blurMode: boolean;
+  brushMode: boolean;
+  onClickPaperTail: () => void;
   onUpdateBlock: (
     noteId: string,
     blockId: string,
@@ -28,6 +34,33 @@ export function NoteTemplateLayouts({
     options?: { compact?: boolean; hideBadge?: boolean }
   ) => React.ReactNode;
 }) {
+  const renderPaperTail = () =>
+    !blurMode && !brushMode ? (
+      <div
+        onClick={onClickPaperTail}
+        className="no-print group/tail mt-2 flex min-h-[140px] cursor-text items-start rounded-xl px-2 pt-3 transition hover:bg-[var(--ink-primary)]/[0.02]"
+      >
+        <span className="font-mono text-xs text-[var(--ink-muted)]/45 transition group-hover/tail:text-[var(--ink-muted)]/80 select-none">
+          Chạm vào trang giấy để viết tiếp...
+        </span>
+      </div>
+    ) : (
+      <div className="min-h-[80px]" />
+    );
+
+  if (activeTemplate === "freeform") {
+    return (
+      <div className="mt-4 space-y-2.5">
+        {blocks.map((block) => (
+          <div key={block.id} className="group">
+            {renderCard(block)}
+          </div>
+        ))}
+        {renderPaperTail()}
+      </div>
+    );
+  }
+
   if (activeTemplate === "cornell") {
     return (
       <>
@@ -48,7 +81,7 @@ export function NoteTemplateLayouts({
                     onChange={(e) =>
                       onUpdateBlock(noteId, block.id, { cue: e.target.value })
                     }
-                    className="w-full bg-transparent font-sans text-sm leading-relaxed font-medium text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)]"
+                    className="w-full bg-transparent font-sans text-[16px] leading-relaxed font-medium text-[var(--ink-primary)] outline-none placeholder:text-[var(--ink-muted)] sm:text-sm"
                     placeholder="Câu hỏi / Từ khóa..."
                   />
                 </div>
@@ -72,10 +105,11 @@ export function NoteTemplateLayouts({
                     </span>
                     <AutoResizeTextarea
                       value={block.cue}
+                      placeholder="Câu hỏi / Từ khóa..."
                       onChange={(e) =>
                         onUpdateBlock(noteId, block.id, { cue: e.target.value })
                       }
-                      className="mt-0.5 w-full bg-transparent text-sm font-medium text-[var(--ink-primary)] outline-none"
+                      className="mt-0.5 w-full bg-transparent text-[16px] font-medium text-[var(--ink-primary)] outline-none sm:text-sm"
                     />
                   </div>
                 </div>
@@ -83,6 +117,7 @@ export function NoteTemplateLayouts({
               </div>
             ))}
         </div>
+        {mobileTab !== "summary" && renderPaperTail()}
       </>
     );
   }
@@ -118,6 +153,7 @@ export function NoteTemplateLayouts({
             </div>
           ))}
         </div>
+        {renderPaperTail()}
       </div>
     );
   }
@@ -150,6 +186,7 @@ export function NoteTemplateLayouts({
             </div>
           ))}
         </div>
+        {renderPaperTail()}
       </div>
     );
   }
@@ -235,6 +272,7 @@ export function NoteTemplateLayouts({
             );
           })}
         </div>
+        {renderPaperTail()}
       </div>
     );
   }
@@ -270,6 +308,7 @@ export function NoteTemplateLayouts({
             <div className="pl-0 sm:pl-8">{renderCard(block)}</div>
           </div>
         ))}
+        {renderPaperTail()}
       </div>
     );
   }
@@ -326,6 +365,7 @@ export function NoteTemplateLayouts({
             </div>
           ))}
         </div>
+        {renderPaperTail()}
       </div>
     );
   }
@@ -431,6 +471,7 @@ export function NoteTemplateLayouts({
           </div>
         ))}
       </div>
+      {renderPaperTail()}
     </div>
   );
 }

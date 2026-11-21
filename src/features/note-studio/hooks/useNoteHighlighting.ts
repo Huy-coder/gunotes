@@ -40,6 +40,16 @@ export function useNoteHighlighting({
     setHighlightHistory([]);
   }, [noteId]);
 
+  const recordUndoEntry = useCallback(
+    (blockId: string, prevContent: string) => {
+      setHighlightHistory((prev) => [
+        ...prev.slice(-29),
+        { blockId, prevContent },
+      ]);
+    },
+    []
+  );
+
   const handleUndoHighlight = useCallback(() => {
     if (!note || highlightHistory.length === 0) return;
     const last = highlightHistory[highlightHistory.length - 1];
@@ -218,6 +228,7 @@ export function useNoteHighlighting({
     applyHighlightUpdate,
     applyHighlightAction,
     handleUndoHighlight,
+    recordUndoEntry,
     handleTextareaKeyDown,
   };
 }
