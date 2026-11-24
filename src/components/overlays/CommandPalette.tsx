@@ -13,7 +13,16 @@ import {
   Timer,
   X,
 } from "lucide-react";
+import { stripStudyMarkup } from "@/lib/highlight/highlight-markup";
 import { useAppStore } from "@/store/useAppStore";
+
+interface NoteSearchHit {
+  noteId: string;
+  binderId: string;
+  title: string;
+  blockId?: string;
+  snippet?: string;
+}
 
 export function CommandPalette() {
   const router = useRouter();
@@ -30,16 +39,64 @@ export function CommandPalette() {
 
   const [query, setQuery] = useState("");
 
-  const filteredNotes = useMemo(() => {
+  const noteHits = useMemo<NoteSearchHit[]>(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return notes.slice(0, 5);
-    return notes
-      .filter(
-        (n) =>
-          n.title.toLowerCase().includes(q) ||
-          n.tags.some((t) => t.toLowerCase().includes(q))
-      )
-      .slice(0, 6);
+    if (!q) {
+      return notes.slice(0, 5).map((n) => ({
+        noteId: n.id,
+        binderId: n.binderId,
+        title: n.title,
+      }));
+    }
+
+    const hits: NoteSearchHit[] = [];
+    for (const n of notes) {
+      const titleMatch = n.title.toLowerCase().includes(q);
+      const tagMatch = n.tags.some((t) => t.toLowerCase().includes(q));
+      const summaryPlain = stripStudyMarkup(n.summary);
+      const summaryMatch = summaryPlain.toLowerCase().includes(q);
+
+      let matchedBlockId: string | undefined;
+      let snippet: string | undefined;
+
+      for (const blk of n.blocks) {
+        const plain = stripStudyMarkup(blk.content);
+        const cuePlain = stripStudyMarkup(blk.cue);
+        const idxContent = plain.toLowerCase().indexOf(q);
+        const idxCue = cuePlain.toLowerCase().indexOf(q);
+        if (idxContent !== -1) {
+          matchedBlockId = blk.id;
+          const start = Math.max(0, idxContent - 28);
+          const end = Math.min(plain.length, idxContent + q.length + 52);
+          snippet = `${start > 0 ? "..." : ""}${plain.slice(start, end)}${
+            end < plain.length ? "..." : ""
+          }`;
+          break;
+        }
+        if (idxCue !== -1) {
+          matchedBlockId = blk.id;
+          snippet = cuePlain.slice(0, 80);
+          break;
+        }
+      }
+
+      if (!snippet && summaryMatch) {
+        snippet = summaryPlain.slice(0, 80);
+      }
+
+      if (titleMatch || tagMatch || summaryMatch || matchedBlockId) {
+        hits.push({
+          noteId: n.id,
+          binderId: n.binderId,
+          title: n.title,
+          blockId: matchedBlockId,
+          snippet,
+        });
+      }
+      if (hits.length >= 8) break;
+    }
+
+    return hits;
   }, [notes, query]);
 
   const filteredBinders = useMemo(() => {
@@ -70,7 +127,7 @@ export function CommandPalette() {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm ghi chú, cuốn sổ hoặc gõ lệnh nhanh..."
+            placeholder="Tìm tiêu đề, tag hoặc nội dung bên trong ghi chú..."
             className="w-full bg-transparent text-sm outline-none placeholder:text-[var(--ink-muted)]"
           />
           <button
@@ -95,7 +152,7 @@ export function CommandPalette() {
                   const created = addNote(targetBinder.id);
                   close();
                   router.push(`/binder/${targetBinder.id}/note/${created.id}`);
-                  showToast("Đã tạo trang ghi chú Cornell mới!");
+                  showToast("Đã tạo trang ghi chú mới!");
                 }
               }}
               className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-[var(--bg-desk)]"
@@ -203,28 +260,38 @@ export function CommandPalette() {
             </>
           )}
 
-          {/* Notes */}
-          {filteredNotes.length > 0 && (
+          {/* Notes (Full-text block search) */}
+          {noteHits.length > 0 && (
             <>
               <div className="mt-3 px-2 py-1.5 font-mono text-[11px] font-medium tracking-wider text-[var(--ink-muted)] uppercase">
-                Trang ghi chú
+                Trang & Nội dung ghi chú
               </div>
               <div className="space-y-0.5">
-                {filteredNotes.map((n) => {
-                  const binder = binders.find((b) => b.id === n.binderId);
+                {noteHits.map((hit) => {
+                  const binder = binders.find((b) => b.id === hit.binderId);
+                  const href = hit.blockId
+                    ? `/binder/${hit.binderId}/note/${hit.noteId}?block=${hit.blockId}`
+                    : `/binder/${hit.binderId}/note/${hit.noteId}`;
                   return (
                     <button
-                      key={n.id}
+                      key={`${hit.noteId}-${hit.blockId ?? "title"}`}
                       onClick={() => {
                         close();
-                        router.push(`/binder/${n.binderId}/note/${n.id}`);
+                        router.push(href);
                       }}
-                      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition hover:bg-[var(--bg-desk)]"
+                      className="flex w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left text-sm transition hover:bg-[var(--bg-desk)]"
                     >
-                      <span className="truncate font-medium">{n.title}</span>
-                      <span className="ml-3 shrink-0 font-mono text-xs text-[var(--ink-muted)]">
-                        {binder?.title ?? "Sổ"}
-                      </span>
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className="truncate font-medium">{hit.title}</span>
+                        <span className="shrink-0 font-mono text-xs text-[var(--ink-muted)]">
+                          {binder?.title ?? "Sổ"}
+                        </span>
+                      </div>
+                      {hit.snippet && (
+                        <span className="line-clamp-1 font-mono text-[11px] text-[var(--ink-muted)]">
+                          ↳ {hit.snippet}
+                        </span>
+                      )}
                     </button>
                   );
                 })}

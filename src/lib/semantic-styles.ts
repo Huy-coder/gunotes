@@ -139,6 +139,13 @@ export const SEMANTIC_META: Record<
     shortcut: "@diagram",
     description: "Flowchart, Venn, Cây, Mạng nhện",
   },
+  image: {
+    badge: "HÌNH ẢNH",
+    bgVar: "var(--bg-elevated)",
+    borderVar: "var(--border-hairline)",
+    shortcut: "@img",
+    description: "Ảnh chụp bảng, đề bài & chú thích",
+  },
 };
 
 export function getBinderToneVars(tone: BinderCoverTone): {

@@ -58,6 +58,8 @@ create table if not exists public.notes (
 );
 
 alter table public.notes add column if not exists block_links jsonb not null default '[]'::jsonb;
+alter table public.notes add column if not exists ink_strokes jsonb not null default '[]'::jsonb;
+alter table public.notes add column if not exists is_public boolean not null default false;
 
 -- 4. Active Recall Flashcards (SRS)
 create table if not exists public.flashcards (
@@ -81,6 +83,7 @@ create table if not exists public.flashcards (
 alter table public.flashcards add column if not exists note_title text not null default '';
 alter table public.flashcards add column if not exists due_label text not null default 'Đến hạn hôm nay';
 alter table public.flashcards add column if not exists is_due boolean not null default true;
+alter table public.flashcards add column if not exists ease_factor real not null default 2.5;
 alter table public.flashcards add column if not exists created_at timestamptz not null default now();
 
 -- 5. Focus / Pomodoro Study Sessions
@@ -117,6 +120,10 @@ create policy "Users manage own binders" on public.binders
 drop policy if exists "Users manage own notes" on public.notes;
 create policy "Users manage own notes" on public.notes
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "Public can read shared notes" on public.notes;
+create policy "Public can read shared notes" on public.notes
+  for select using (is_public = true);
 
 drop policy if exists "Users manage own flashcards" on public.flashcards;
 create policy "Users manage own flashcards" on public.flashcards

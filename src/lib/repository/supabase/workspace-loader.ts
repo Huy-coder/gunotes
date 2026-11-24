@@ -12,6 +12,7 @@ import {
   type DbNoteRow,
   type DbProfileRow,
 } from "@/lib/repository/supabase/types-and-mappers";
+import { computeStudyMetrics, getLocalDateKey } from "@/lib/srs/sm2";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   FocusTask,
@@ -33,24 +34,31 @@ export async function fetchCloudWorkspace(
   }
 
   try {
-    const [profileRes, bindersRes, notesRes, flashcardsRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
-      supabase
-        .from("binders")
-        .select("*")
-        .eq("user_id", userId)
-        .order("sort_order", { ascending: true }),
-      supabase
-        .from("notes")
-        .select("*")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("flashcards")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false }),
-    ]);
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString();
+    const [profileRes, bindersRes, notesRes, flashcardsRes, sessionsRes] =
+      await Promise.all([
+        supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+        supabase
+          .from("binders")
+          .select("*")
+          .eq("user_id", userId)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("notes")
+          .select("*")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("flashcards")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("study_sessions")
+          .select("duration_minutes,mode,created_at")
+          .eq("user_id", userId)
+          .gte("created_at", ninetyDaysAgo),
+      ]);
 
     const firstError =
       profileRes.error ??
@@ -105,14 +113,40 @@ export async function fetchCloudWorkspace(
     const noteTitleMap = new Map(mappedNotes.map((n) => [n.id, n.title]));
     const mappedCards = flashcardRows.map((c) => mapFlashcardRow(c, noteTitleMap));
 
+    // Aggregate 90-day study sessions into local-date study heatmap
+    const dailyStudyLog: Record<string, number> = {};
+    if (!sessionsRes.error && Array.isArray(sessionsRes.data)) {
+      for (const row of sessionsRes.data as Array<{
+        duration_minutes?: number;
+        mode?: string;
+        created_at?: string;
+      }>) {
+        if (row.mode === "break" || !row.created_at) continue;
+        const dt = new Date(row.created_at);
+        if (Number.isNaN(dt.getTime())) continue;
+        const key = getLocalDateKey(dt);
+        dailyStudyLog[key] =
+          (dailyStudyLog[key] ?? 0) + Math.max(0, row.duration_minutes ?? 0);
+      }
+    }
+
+    const hasSessionHistory = Object.keys(dailyStudyLog).length > 0;
+    const computedMetrics = hasSessionHistory
+      ? computeStudyMetrics(dailyStudyLog)
+      : null;
+
     const user: UserProfile = {
       id: profileRow.id,
       displayName:
         profileRow.display_name || email.split("@")[0] || "Bạn mới",
       email: profileRow.email || email,
-      streakDays: profileRow.streak_days ?? 0,
-      weeklyFocusMinutes: profileRow.weekly_focus_minutes ?? 0,
-      todayFocusMinutes: profileRow.today_focus_minutes ?? 0,
+      streakDays: computedMetrics?.streakDays ?? profileRow.streak_days ?? 0,
+      weeklyFocusMinutes:
+        computedMetrics?.weeklyFocusMinutes ??
+        profileRow.weekly_focus_minutes ??
+        0,
+      todayFocusMinutes:
+        computedMetrics?.todayFocusMinutes ?? profileRow.today_focus_minutes ?? 0,
       unlockedStickers: Array.isArray(profileRow.unlocked_stickers)
         ? profileRow.unlocked_stickers
         : [...DEFAULT_STARTER_STICKERS],
@@ -134,6 +168,7 @@ export async function fetchCloudWorkspace(
       notes: mappedNotes,
       flashcards: mappedCards,
       focusTasks,
+      dailyStudyLog,
     };
   } catch (err) {
     return {

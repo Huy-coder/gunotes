@@ -4,13 +4,17 @@ import React, { useEffect, useState } from "react";
 import {
   ArrowRight,
   Brain,
+  CheckCircle2,
+  Loader2,
   Pause,
   Play,
+  Plus,
   RotateCcw,
   Sparkles,
   X,
 } from "lucide-react";
 import { HighlightText } from "@/components/ui/HighlightText";
+import type { BlurtingGradeResult } from "@/lib/ai/study-assistant";
 import { SEMANTIC_META } from "@/lib/semantic-styles";
 import type { Note } from "@/types/study";
 
@@ -37,6 +41,10 @@ export function BlurtingModal({
   const [mobileTab, setMobileTab] = useState<"mine" | "source">("mine");
   const [secondsLeft, setSecondsLeft] = useState(5 * 60);
   const [running, setRunning] = useState(false);
+  const [grading, setGrading] = useState(false);
+  const [gradeResult, setGradeResult] = useState<
+    (BlurtingGradeResult & { source?: "gemini" | "local" }) | null
+  >(null);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +54,31 @@ export function BlurtingModal({
     setMobileTab("mine");
     setSecondsLeft(5 * 60);
     setRunning(false);
+    setGradeResult(null);
   }, [open, note.id]);
+
+  const handleAutoGrade = async () => {
+    setGrading(true);
+    try {
+      const res = await fetch("/api/ai/study", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "grade-blurting",
+          note,
+          dumpText,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as BlurtingGradeResult & {
+          source?: "gemini" | "local";
+        };
+        setGradeResult(data);
+      }
+    } finally {
+      setGrading(false);
+    }
+  };
 
   useEffect(() => {
     if (!open || !running) return;
@@ -206,14 +238,75 @@ export function BlurtingModal({
                 }`}
               >
                 <div className="rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-paper)] p-4">
-                  <div className="mb-1.5 font-mono text-[10px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
-                    PHẦN BẠN ĐÃ NHỚ ĐƯỢC
+                  <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono text-[10px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
+                      PHẦN BẠN ĐÃ NHỚ ĐƯỢC
+                    </span>
+                    <button
+                      type="button"
+                      disabled={grading}
+                      onClick={() => void handleAutoGrade()}
+                      className="inline-flex items-center gap-1 rounded-full border border-[var(--ink-primary)] bg-[var(--hl-yellow)] px-2.5 py-1 font-mono text-[10px] font-bold text-[var(--ink-primary)] hover:brightness-95 disabled:opacity-60"
+                    >
+                      {grading ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      <span>
+                        {grading ? "Đang chấm..." : "Chấm điểm tự động"}
+                      </span>
+                    </button>
                   </div>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap text-[var(--ink-primary)]">
                     {dumpText.trim() ||
                       "(Bạn chưa gõ nội dung ở bước xả não — có thể xem bản gốc rồi ghi lại điểm yếu vào khung mực đỏ bên dưới.)"}
                   </p>
                 </div>
+
+                {gradeResult && (
+                  <div className="space-y-2.5 rounded-2xl border border-[var(--border-hairline)] bg-[var(--bg-paper)] p-4 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+                        <span>
+                          Điểm nhớ lại: {gradeResult.score}/100 (
+                          {gradeResult.source === "gemini"
+                            ? "Gemini AI"
+                            : "So khớp thông minh"}
+                          )
+                        </span>
+                      </span>
+                    </div>
+                    <p className="text-[var(--ink-muted)]">
+                      {gradeResult.advice}
+                    </p>
+                    {gradeResult.missedPoints.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="font-mono text-[10px] font-semibold text-[var(--ink-muted)] uppercase">
+                          Ý còn sót — bấm để chèn vào mực đỏ:
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {gradeResult.missedPoints.map((pt, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() =>
+                                setRedInkText((cur) =>
+                                  cur.trim() ? `${cur}\n• ${pt}` : `• ${pt}`
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-full border border-[var(--sem-trap-border)] bg-[var(--sem-trap-bg)] px-2.5 py-1 text-[11px] font-medium hover:brightness-95"
+                            >
+                              <Plus className="h-3 w-3 shrink-0" />
+                              <span className="max-w-[260px] truncate">{pt}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div
                   className="rounded-2xl border p-4"

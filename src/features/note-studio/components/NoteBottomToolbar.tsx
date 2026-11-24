@@ -4,8 +4,10 @@ import React from "react";
 import {
   GitBranch,
   Highlighter,
+  ImagePlus,
   Layers,
   PenLine,
+  PenTool,
   Sigma,
   Sparkles,
   Undo2,
@@ -21,9 +23,12 @@ export function NoteBottomToolbar({
   setDiagramPickerOpen,
   brushMode,
   onToggleBrushMode,
+  inkMode,
+  onToggleInkMode,
   highlightHistoryCount,
   onUndoHighlight,
   onQuickWrite,
+  onTriggerImageUpload,
   onInsertBlock,
   onInsertDiagram,
   onOpenNewFormula,
@@ -36,9 +41,12 @@ export function NoteBottomToolbar({
   setDiagramPickerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   brushMode: boolean;
   onToggleBrushMode: () => void;
+  inkMode: boolean;
+  onToggleInkMode: () => void;
   highlightHistoryCount: number;
   onUndoHighlight: () => void;
   onQuickWrite: () => void;
+  onTriggerImageUpload: () => void;
   onInsertBlock: (type: BlockType) => void;
   onInsertDiagram: (kind: DiagramData["kind"]) => void;
   onOpenNewFormula: () => void;
@@ -225,6 +233,31 @@ export function NoteBottomToolbar({
               </span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={onTriggerImageUpload}
+            title="Chèn ảnh / chụp bảng vào trang"
+            className="flex items-center gap-1 rounded-full px-2 py-1.5 text-xs font-medium text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)] sm:px-2.5"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Ảnh</span>
+          </button>
+
+          <button
+            type="button"
+            data-highlight-ui="true"
+            onClick={onToggleInkMode}
+            title="Vẽ tay tự do trực tiếp trên giấy"
+            className={`flex items-center gap-1 rounded-full border px-2 py-1.5 text-xs font-medium transition sm:px-2.5 ${
+              inkMode
+                ? "border-[var(--ink-primary)] bg-[var(--accent-primary)] text-[var(--accent-primary-fg)]"
+                : "border-transparent text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)]"
+            }`}
+          >
+            <PenTool className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Vẽ tay</span>
+          </button>
 
           <button
             type="button"

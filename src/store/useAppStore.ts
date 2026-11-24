@@ -46,6 +46,8 @@ export const useAppStore = create<AppState>()(
         notes: state.notes,
         flashcards: state.flashcards,
         focusTasks: state.focusTasks,
+        timerEndAt: state.timerEndAt,
+        dailyStudyLog: state.dailyStudyLog,
       }),
     }
   )

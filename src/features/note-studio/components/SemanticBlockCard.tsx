@@ -1,12 +1,21 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Link2, Sigma, Trash2, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  GripVertical,
+  Link2,
+  Sigma,
+  Trash2,
+  X,
+} from "lucide-react";
 import { AutoResizeTextarea } from "@/components/ui/AutoResizeTextarea";
 import { HighlightText } from "@/components/ui/HighlightText";
 import { createDiagramPreset } from "@/features/diagrams/presets";
 import { DiagramBlockView } from "@/features/diagrams/DiagramBlockView";
 import { BlockFormattingBar } from "@/features/note-studio/components/BlockFormattingBar";
+import { ImageBlockView } from "@/features/note-studio/components/ImageBlockView";
 import { InlineSlashMenu } from "@/features/note-studio/components/InlineSlashMenu";
 import {
   DIAGRAM_PRESET_META,
@@ -33,6 +42,7 @@ export function SemanticBlockCard({
   blurMode,
   isRevealed,
   isEditing,
+  highlighted = false,
   focusCaret = "end",
   brushMode,
   brushColor,
@@ -42,7 +52,9 @@ export function SemanticBlockCard({
   setEditingBlockId,
   clearSelectionPopup,
   onOpenFormulaModal,
+  onOpenImagePicker,
   onMoveBlock,
+  onReorderBlock,
   onUpdateBlock,
   onDeleteBlock,
   onInsertBlockAfter,
@@ -66,6 +78,7 @@ export function SemanticBlockCard({
   blurMode: boolean;
   isRevealed: boolean;
   isEditing: boolean;
+  highlighted?: boolean;
   focusCaret?: "start" | "end";
   brushMode: boolean;
   brushColor: HighlightColor | "cloze" | "clear";
@@ -75,7 +88,13 @@ export function SemanticBlockCard({
   setEditingBlockId: (id: string | null, caret?: "start" | "end") => void;
   clearSelectionPopup: () => void;
   onOpenFormulaModal: (blockId: string, initialLatex: string) => void;
+  onOpenImagePicker: (afterBlockId: string) => void;
   onMoveBlock: (noteId: string, blockId: string, dir: "up" | "down") => void;
+  onReorderBlock: (
+    noteId: string,
+    fromBlockId: string,
+    toBlockId: string
+  ) => void;
   onUpdateBlock: (
     noteId: string,
     blockId: string,
@@ -122,6 +141,7 @@ export function SemanticBlockCard({
     end: number;
   } | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
+  const [dragOver, setDragOver] = useState(false);
 
   // Focus & position caret cleanly when entering edit mode
   useEffect(() => {
@@ -178,6 +198,14 @@ export function SemanticBlockCard({
         onUpdateBlock(noteId, block.id, { content: cleaned });
       }
       onOpenFormulaModal(block.id, extractFirstLatex(cleaned));
+      return;
+    }
+
+    if (item.action.kind === "image") {
+      if (cleaned !== block.content) {
+        onUpdateBlock(noteId, block.id, { content: cleaned });
+      }
+      onOpenImagePicker(block.id);
       return;
     }
 
@@ -356,9 +384,30 @@ export function SemanticBlockCard({
         borderColor: meta.borderVar,
       };
 
+  const hasRichMarkup =
+    /(==[\s\S]+?==|\{\{[\s\S]+?\}\}|\$[^$\n]+?\$|\[\[[^\]]+?\]\])/.test(
+      block.content
+    );
+
   return (
     <div
       data-block-id={block.id}
+      onDragOver={(e) => {
+        if (blurMode || isEditing) return;
+        if (e.dataTransfer.types.includes("text/gunotes-block")) {
+          e.preventDefault();
+          setDragOver(true);
+        }
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        setDragOver(false);
+        const draggedId = e.dataTransfer.getData("text/gunotes-block");
+        if (draggedId && draggedId !== block.id) {
+          e.preventDefault();
+          onReorderBlock(noteId, draggedId, block.id);
+        }
+      }}
       onClick={() => {
         if (shouldBlur) onToggleRevealBlock(block.id);
       }}
@@ -366,11 +415,28 @@ export function SemanticBlockCard({
         brushMode && !blurMode
           ? "cursor-text ring-1 ring-[var(--ink-primary)]/15"
           : ""
+      } ${dragOver ? "ring-2 ring-[var(--accent-ring)]" : ""} ${
+        highlighted ? "ring-2 ring-[var(--ink-primary)]" : ""
       }`}
       style={containerStyle}
     >
-      {/* Header row only shown for semantic/diagram cards or when editing a non-text block */}
-      {(!isFramelessText || block.type === "diagram") && (
+      {/* Subtle Desktop Drag Handle */}
+      {!blurMode && !isEditing && (
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData("text/gunotes-block", block.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          title="Kéo để sắp xếp lại vị trí khối"
+          className="no-print absolute top-2 -left-4 hidden cursor-grab text-[var(--ink-muted)]/50 opacity-0 transition group-hover:opacity-100 hover:text-[var(--ink-primary)] active:cursor-grabbing lg:flex"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </div>
+      )}
+
+      {/* Header row shown for semantic, diagram or image cards */}
+      {(!isFramelessText || block.type === "diagram" || block.type === "image") && (
         <div className="mb-1.5 flex items-center justify-between gap-2">
           {!hideBadge ? (
             <span className="font-mono text-[10px] font-bold tracking-wider uppercase">
@@ -380,7 +446,7 @@ export function SemanticBlockCard({
             <span />
           )}
 
-          {block.type === "diagram" && (
+          {(block.type === "diagram" || block.type === "image") && (
             <div className="no-print flex items-center gap-0.5 opacity-100 transition lg:opacity-0 lg:group-hover:opacity-100">
               {!blurMode && (
                 <>
@@ -417,14 +483,18 @@ export function SemanticBlockCard({
                   onDeleteBlock(noteId, block.id);
                 }}
                 className="rounded p-1 text-[var(--ink-muted)] hover:bg-black/10 hover:text-[var(--ink-primary)]"
-                title="Xóa sơ đồ"
+                title={block.type === "image" ? "Xóa ảnh" : "Xóa sơ đồ"}
               >
                 <Trash2 className="h-3 w-3" />
               </button>
             </div>
           )}
 
-          {!isFramelessText && block.type !== "diagram" && !isEditing && !blurMode && (
+          {!isFramelessText &&
+            block.type !== "diagram" &&
+            block.type !== "image" &&
+            !isEditing &&
+            !blurMode && (
             <div className="no-print flex items-center gap-0.5 opacity-80 transition lg:opacity-0 lg:group-hover:opacity-100">
               <button
                 type="button"
@@ -465,6 +535,17 @@ export function SemanticBlockCard({
             diagram={block.diagram}
             canvasGraph={block.canvasGraph}
             viewMode={block.diagramViewMode}
+            onPatch={(patch) => onUpdateBlock(noteId, block.id, patch)}
+          />
+        </div>
+      ) : block.type === "image" ? (
+        <div
+          className={shouldBlur ? "blur-recall-mask" : "blur-recall-revealed"}
+        >
+          <ImageBlockView
+            imageUrl={block.imageUrl}
+            caption={block.imageCaption}
+            strokes={block.imageStrokes}
             onPatch={(patch) => onUpdateBlock(noteId, block.id, patch)}
           />
         </div>
@@ -539,6 +620,17 @@ export function SemanticBlockCard({
               activeIndex={slashIndex}
               onSelect={executeSlashCommand}
             />
+          )}
+
+          {hasRichMarkup && (
+            <div className="no-print rounded-xl border border-dashed border-[var(--border-hairline)] bg-[var(--bg-paper)]/85 px-3 py-2">
+              <div className="mb-1 font-mono text-[9.5px] font-semibold tracking-wider text-[var(--ink-muted)] uppercase">
+                Xem trước trực tiếp
+              </div>
+              <div className="text-sm leading-relaxed">
+                <HighlightText text={block.content} disableWikiNavigation />
+              </div>
+            </div>
           )}
 
           <BlockFormattingBar

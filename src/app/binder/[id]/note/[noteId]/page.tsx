@@ -17,7 +17,10 @@ import { NoteSelectionMenus } from "@/features/note-studio/components/NoteSelect
 import { NoteStudioHeader } from "@/features/note-studio/components/NoteStudioHeader";
 import { NoteStudioSidebar } from "@/features/note-studio/components/NoteStudioSidebar";
 import { NoteTemplateLayouts } from "@/features/note-studio/components/NoteTemplateLayouts";
+import { PaperInkLayer } from "@/features/note-studio/components/PaperInkLayer";
+import { QuickQuizModal } from "@/features/note-studio/components/QuickQuizModal";
 import { SemanticBlockCard } from "@/features/note-studio/components/SemanticBlockCard";
+import { ShareExportModal } from "@/features/note-studio/components/ShareExportModal";
 import { useNoteHighlighting } from "@/features/note-studio/hooks/useNoteHighlighting";
 import {
   DIAGRAM_PRESET_META,
@@ -25,6 +28,7 @@ import {
   type MobileTab,
 } from "@/features/note-studio/utils/note-studio-helpers";
 import { stripStudyMarkup } from "@/lib/highlight/highlight-markup";
+import { uploadNoteImage } from "@/lib/media/image-upload";
 import {
   getPaperClass,
   NOTE_TEMPLATE_META,
@@ -45,6 +49,8 @@ export default function NoteStudioPage() {
   const binderId = params?.id ?? "";
   const noteId = params?.noteId ?? "";
 
+  const authMode = useAppStore((s) => s.authMode);
+  const cloudUserId = useAppStore((s) => s.cloudUserId);
   const binders = useAppStore((s) => s.binders);
   const notes = useAppStore((s) => s.notes);
   const noteFont = useAppStore((s) => s.noteFont);
@@ -64,8 +70,10 @@ export default function NoteStudioPage() {
   const restoreBlock = useAppStore((s) => s.restoreBlock);
   const updateBlock = useAppStore((s) => s.updateBlock);
   const moveBlock = useAppStore((s) => s.moveBlock);
+  const reorderBlock = useAppStore((s) => s.reorderBlock);
   const deleteBlock = useAppStore((s) => s.deleteBlock);
   const addFlashcard = useAppStore((s) => s.addFlashcard);
+  const generateDeckFromNote = useAppStore((s) => s.generateDeckFromNote);
   const openCustomize = useAppStore((s) => s.openCustomize);
   const showToast = useAppStore((s) => s.showToast);
 
@@ -78,10 +86,16 @@ export default function NoteStudioPage() {
     blockId: string | null;
     caret: "start" | "end";
   }>({ blockId: null, caret: "end" });
+  const [highlightedBlockId, setHighlightedBlockId] = useState<string | null>(
+    null
+  );
+  const [inkMode, setInkMode] = useState(false);
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [newTagText, setNewTagText] = useState("");
   const [blurtingOpen, setBlurtingOpen] = useState(false);
   const [visualizeOpen, setVisualizeOpen] = useState(false);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [linkPickerBlockId, setLinkPickerBlockId] = useState<string | null>(
     null
   );
@@ -95,6 +109,8 @@ export default function NoteStudioPage() {
   } | null>(null);
 
   const autoFocusedNoteRef = useRef<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingImageAfterIdRef = useRef<string | undefined>(undefined);
 
   const editingBlockId = editingState.blockId;
   const setEditingBlockId = useCallback(
@@ -136,6 +152,21 @@ export default function NoteStudioPage() {
   useEffect(() => {
     setDeletedBlockUndo(null);
     setTemplateMenuOpen(false);
+    setInkMode(false);
+  }, [noteId]);
+
+  // Support deep link ?block=blk-... from CommandPalette search hits
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const blockParam = new URLSearchParams(window.location.search).get("block");
+    if (!blockParam) return;
+    setHighlightedBlockId(blockParam);
+    const el = document.querySelector(`[data-block-id="${blockParam}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    const timer = window.setTimeout(() => setHighlightedBlockId(null), 3200);
+    return () => window.clearTimeout(timer);
   }, [noteId]);
 
   // Auto-focus fresh blank page once on first mount of that note
@@ -169,6 +200,57 @@ export default function NoteStudioPage() {
     showToast("Đã khôi phục khối vừa xóa!");
   }, [note, deletedBlockUndo, restoreBlock, setEditingBlockId, showToast]);
 
+  const handleUploadImageFile = useCallback(
+    async (file: File, insertAfterBlockId?: string) => {
+      if (!note) return;
+      showToast("Đang xử lý & chèn ảnh vào trang...");
+      try {
+        const url = await uploadNoteImage(file, cloudUserId);
+        addBlockToNote(
+          note.id,
+          {
+            type: "image",
+            title: "HÌNH ẢNH",
+            cue: "Ảnh minh họa / Chụp bảng",
+            content: "Hình ảnh ghi chú",
+            imageUrl: url,
+            imageCaption: "",
+            imageStrokes: [],
+          },
+          insertAfterBlockId
+        );
+        setEditingBlockId(null);
+        showToast("Đã chèn hình ảnh vào trang ghi chú!");
+      } catch (err) {
+        showToast(
+          err instanceof Error ? err.message : "Không thể tải ảnh lên trang."
+        );
+      }
+    },
+    [note, cloudUserId, addBlockToNote, setEditingBlockId, showToast]
+  );
+
+  // Paste image directly from clipboard (Ctrl+V / Cmd+V)
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (!note || blurMode) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void handleUploadImageFile(file, editingBlockId ?? undefined);
+            return;
+          }
+        }
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [note, blurMode, editingBlockId, handleUploadImageFile]);
+
   // Global keyboard shortcuts ('R' blur, '/' slash, 'Ctrl/Cmd+Z' undo, 'Esc' dismiss)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -178,6 +260,7 @@ export default function NoteStudioPage() {
         setTemplateMenuOpen(false);
         setSelectionPopup(null);
         setLinkPickerBlockId(null);
+        setInkMode(false);
         return;
       }
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -236,6 +319,11 @@ export default function NoteStudioPage() {
   }
 
   const handleInsertBlock = (type: BlockType, insertAfterBlockId?: string) => {
+    if (type === "image") {
+      pendingImageAfterIdRef.current = insertAfterBlockId;
+      imageInputRef.current?.click();
+      return;
+    }
     const payload = getDefaultBlockPayload(type);
     const created = addBlockToNote(
       note.id,
@@ -287,7 +375,7 @@ export default function NoteStudioPage() {
     if (idx === -1) return;
     const step = dir === "prev" ? -1 : 1;
     for (let i = idx + step; i >= 0 && i < note.blocks.length; i += step) {
-      if (note.blocks[i].type !== "diagram") {
+      if (note.blocks[i].type !== "diagram" && note.blocks[i].type !== "image") {
         setEditingBlockId(note.blocks[i].id, dir === "prev" ? "end" : "start");
         return;
       }
@@ -299,7 +387,7 @@ export default function NoteStudioPage() {
     if (idx === -1) return;
     let prevTextBlockId: string | null = null;
     for (let i = idx - 1; i >= 0; i--) {
-      if (note.blocks[i].type !== "diagram") {
+      if (note.blocks[i].type !== "diagram" && note.blocks[i].type !== "image") {
         prevTextBlockId = note.blocks[i].id;
         break;
       }
@@ -309,9 +397,14 @@ export default function NoteStudioPage() {
   };
 
   const handleClickPaperTail = () => {
-    if (blurMode || brushMode) return;
+    if (blurMode || brushMode || inkMode) return;
     const last = note.blocks[note.blocks.length - 1];
-    if (last && last.type !== "diagram" && last.content.trim() === "") {
+    if (
+      last &&
+      last.type !== "diagram" &&
+      last.type !== "image" &&
+      last.content.trim() === ""
+    ) {
       setEditingBlockId(last.id, "end");
       return;
     }
@@ -328,7 +421,11 @@ export default function NoteStudioPage() {
       noteId: note.id,
       noteTitle: note.title,
       type:
-        block.type === "text" || block.type === "diagram" ? "def" : block.type,
+        block.type === "text" ||
+        block.type === "diagram" ||
+        block.type === "image"
+          ? "def"
+          : block.type,
       front: block.cue || `Từ khóa trong ${note.title}`,
       back: snippet
         ? `${cleanContent}\n(Trọng tâm: ==y:${snippet}==)`
@@ -385,6 +482,21 @@ export default function NoteStudioPage() {
 
   return (
     <AppShell hideMobileBottomBar>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) {
+            void handleUploadImageFile(file, pendingImageAfterIdRef.current);
+          }
+          pendingImageAfterIdRef.current = undefined;
+        }}
+      />
+
       <div className="flex min-h-screen bg-[var(--bg-desk)]">
         {sidebarOpen && (
           <NoteStudioSidebar
@@ -420,6 +532,16 @@ export default function NoteStudioPage() {
             onResetReveals={resetReveals}
             onOpenVisualize={() => setVisualizeOpen(true)}
             onOpenBlurting={() => setBlurtingOpen(true)}
+            onOpenQuiz={() => setQuizOpen(true)}
+            onGenerateDeck={() => {
+              const count = generateDeckFromNote(note.id);
+              showToast(
+                count > 0
+                  ? `Đã tạo ${count} thẻ Flashcard mới vào /review!`
+                  : "Trang này chưa có từ khóa mới hoặc đã tạo thẻ hết rồi."
+              );
+            }}
+            onOpenShare={() => setShareOpen(true)}
             secondsLeft={secondsLeft}
             isTimerRunning={isTimerRunning}
             onUpdatePaper={(paperStyle) => updateNote(note.id, { paperStyle })}
@@ -434,6 +556,15 @@ export default function NoteStudioPage() {
                 noteFont === "serif" ? "font-serif" : "font-sans"
               }`}
             >
+              <PaperInkLayer
+                inkMode={inkMode}
+                strokes={note.inkStrokes ?? []}
+                onChangeStrokes={(next) =>
+                  updateNote(note.id, { inkStrokes: next })
+                }
+                onCloseInkMode={() => setInkMode(false)}
+              />
+
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute top-0 bottom-0 left-3.5 hidden flex-col justify-evenly sm:flex"
@@ -620,6 +751,7 @@ export default function NoteStudioPage() {
                     blurMode={blurMode}
                     isRevealed={revealedBlockIds.includes(block.id)}
                     isEditing={editingBlockId === block.id}
+                    highlighted={highlightedBlockId === block.id}
                     focusCaret={editingState.caret}
                     brushMode={brushMode}
                     brushColor={brushColor}
@@ -631,7 +763,12 @@ export default function NoteStudioPage() {
                     onOpenFormulaModal={(blockId, initialLatex) =>
                       setFormulaModal({ blockId, initialLatex })
                     }
+                    onOpenImagePicker={(afterId) => {
+                      pendingImageAfterIdRef.current = afterId;
+                      imageInputRef.current?.click();
+                    }}
                     onMoveBlock={moveBlock}
+                    onReorderBlock={reorderBlock}
                     onUpdateBlock={updateBlock}
                     onDeleteBlock={handleDeleteBlockWithUndo}
                     onInsertBlockAfter={(afterBlockId, type = "text") =>
@@ -724,18 +861,38 @@ export default function NoteStudioPage() {
             onToggleBrushMode={() => {
               const next = !brushMode;
               setBrushMode(next);
+              setInkMode(false);
               setSelectionPopup(null);
               setEditingBlockId(null);
               setDiagramPickerOpen(false);
               setSlashOpen(false);
               if (next) {
                 if (blurMode) toggleBlurMode();
-                showToast("Đã bật Bút nhớ — Bôi đen chữ để tô màu ngay!");
+                showToast(
+                  "Đã bật Bút nhớ — Chạm 1 từ hoặc bôi đen đoạn để tô màu!"
+                );
+              }
+            }}
+            inkMode={inkMode}
+            onToggleInkMode={() => {
+              const next = !inkMode;
+              setInkMode(next);
+              setBrushMode(false);
+              setEditingBlockId(null);
+              setDiagramPickerOpen(false);
+              setSlashOpen(false);
+              if (next) {
+                if (blurMode) toggleBlurMode();
+                showToast("Đã bật Bút vẽ tự do trên giấy!");
               }
             }}
             highlightHistoryCount={highlightHistory.length}
             onUndoHighlight={handleUndoHighlight}
             onQuickWrite={handleClickPaperTail}
+            onTriggerImageUpload={() => {
+              pendingImageAfterIdRef.current = editingBlockId ?? undefined;
+              imageInputRef.current?.click();
+            }}
             onInsertBlock={(t) => handleInsertBlock(t)}
             onInsertDiagram={(kind) => handleInsertDiagram(kind)}
             onOpenNewFormula={() =>
@@ -795,6 +952,35 @@ export default function NoteStudioPage() {
           });
           showToast("Đã lưu lỗ hổng thành khối @trap & thêm vào /review!");
         }}
+      />
+
+      <QuickQuizModal
+        open={quizOpen}
+        note={note}
+        onClose={() => setQuizOpen(false)}
+        onSaveWrongToFlashcard={(q) => {
+          addFlashcard({
+            binderId: binder.id,
+            noteId: note.id,
+            noteTitle: note.title,
+            type: "trap",
+            front: q.question,
+            back: q.options[q.correctIndex] ?? q.explanation,
+            tip: q.explanation,
+          });
+          showToast("Đã lưu câu trắc nghiệm vào /review!");
+        }}
+      />
+
+      <ShareExportModal
+        open={shareOpen}
+        note={note}
+        authMode={authMode}
+        onTogglePublic={(nextPublic) =>
+          updateNote(note.id, { isPublic: nextPublic })
+        }
+        onClose={() => setShareOpen(false)}
+        onToast={showToast}
       />
     </AppShell>
   );

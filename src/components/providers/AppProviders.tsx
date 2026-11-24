@@ -5,13 +5,27 @@ import { AmbientAudioEngine } from "@/components/audio/AmbientAudioEngine";
 import { CommandPalette } from "@/components/overlays/CommandPalette";
 import { CustomizeDrawer } from "@/components/overlays/CustomizeDrawer";
 import { PwaRegistrar } from "@/components/pwa/PwaRegistrar";
+import {
+  flushAllPendingNotes,
+  mapBinderRow,
+  mapNoteRow,
+  type DbBinderRow,
+  type DbNoteRow,
+} from "@/lib/repository/supabase-sync";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const theme = useAppStore((s) => s.theme);
   const isTimerRunning = useAppStore((s) => s.isTimerRunning);
+  const cloudUserId = useAppStore((s) => s.cloudUserId);
+  const authMode = useAppStore((s) => s.authMode);
   const tickTimer = useAppStore((s) => s.tickTimer);
+  const syncTimerFromClock = useAppStore((s) => s.syncTimerFromClock);
+  const refreshDueFlashcards = useAppStore((s) => s.refreshDueFlashcards);
+  const flushPendingOfflineSync = useAppStore(
+    (s) => s.flushPendingOfflineSync
+  );
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const hydrateFromSupabase = useAppStore((s) => s.hydrateFromSupabase);
   const clearSupabaseSession = useAppStore((s) => s.clearSupabaseSession);
@@ -20,12 +34,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   const hydratedUserRef = useRef<string | null>(null);
 
-  // Hydrate Zustand locally first, then bind Supabase Auth session + Cloud Sync
+  // Hydrate Zustand locally first, then bind Supabase Auth session + Offline Sync
   useEffect(() => {
     useAppStore.persist.rehydrate();
+    syncTimerFromClock();
+    refreshDueFlashcards();
 
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
 
     let active = true;
 
@@ -48,52 +63,169 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       void hydrateFromSupabase(u.id, u.email ?? "", getFullName(u));
     };
 
-    supabase.auth.getSession().then(({ data }) => {
-      syncSessionUser(data.session?.user, false);
-    });
+    if (supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        syncSessionUser(data.session?.user, false);
+      });
+    }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-      if (event === "SIGNED_OUT") {
-        hydratedUserRef.current = null;
-        clearSupabaseSession();
-        return;
-      }
-      if (event === "USER_UPDATED") {
-        syncSessionUser(session?.user, true);
-        return;
-      }
-      if (
-        event === "INITIAL_SESSION" ||
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED"
-      ) {
-        syncSessionUser(session?.user, false);
-      }
-    });
+    const sub = supabase
+      ? supabase.auth.onAuthStateChange((event, session) => {
+          if (!active) return;
+          if (event === "SIGNED_OUT") {
+            hydratedUserRef.current = null;
+            clearSupabaseSession();
+            return;
+          }
+          if (event === "USER_UPDATED") {
+            syncSessionUser(session?.user, true);
+            return;
+          }
+          if (
+            event === "INITIAL_SESSION" ||
+            event === "SIGNED_IN" ||
+            event === "TOKEN_REFRESHED"
+          ) {
+            syncSessionUser(session?.user, false);
+          }
+        }).data
+      : null;
 
     const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        void flushAllPendingNotes();
+        return;
+      }
       if (document.visibilityState === "visible") {
-        supabase.auth.getSession().then(({ data }) => {
-          syncSessionUser(data.session?.user, false);
-        });
+        syncTimerFromClock();
+        refreshDueFlashcards();
+        void flushPendingOfflineSync();
+        if (supabase) {
+          supabase.auth.getSession().then(({ data }) => {
+            syncSessionUser(data.session?.user, false);
+          });
+        }
       }
     };
+
+    const onOnline = () => {
+      void flushPendingOfflineSync();
+    };
+
+    const onPageHide = () => {
+      void flushAllPendingNotes();
+    };
+
     document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("pagehide", onPageHide);
 
     return () => {
       active = false;
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      sub.subscription.unsubscribe();
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("pagehide", onPageHide);
+      sub?.subscription.unsubscribe();
     };
-  }, [hydrateFromSupabase, clearSupabaseSession]);
+  }, [
+    hydrateFromSupabase,
+    clearSupabaseSession,
+    syncTimerFromClock,
+    refreshDueFlashcards,
+    flushPendingOfflineSync,
+  ]);
+
+  // Supabase Realtime multi-device sync on notes & binders
+  useEffect(() => {
+    if (authMode !== "supabase" || !cloudUserId) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(`gunotes-rt-${cloudUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notes",
+          filter: `user_id=eq.${cloudUserId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "DELETE" && payload.old?.id) {
+            useAppStore.setState((s) => ({
+              notes: s.notes.filter((n) => n.id !== payload.old.id),
+            }));
+            return;
+          }
+          if (
+            (payload.eventType === "INSERT" || payload.eventType === "UPDATE") &&
+            payload.new
+          ) {
+            const incoming = mapNoteRow(payload.new as DbNoteRow);
+            useAppStore.setState((s) => {
+              const existing = s.notes.find((n) => n.id === incoming.id);
+              if (
+                existing?.updatedAtIso &&
+                incoming.updatedAtIso &&
+                Date.parse(existing.updatedAtIso) >=
+                  Date.parse(incoming.updatedAtIso)
+              ) {
+                return s;
+              }
+              return {
+                notes: existing
+                  ? s.notes.map((n) => (n.id === incoming.id ? incoming : n))
+                  : [incoming, ...s.notes],
+              };
+            });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "binders",
+          filter: `user_id=eq.${cloudUserId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "DELETE" && payload.old?.id) {
+            useAppStore.setState((s) => ({
+              binders: s.binders.filter((b) => b.id !== payload.old.id),
+            }));
+            return;
+          }
+          if (
+            (payload.eventType === "INSERT" || payload.eventType === "UPDATE") &&
+            payload.new
+          ) {
+            const incoming = mapBinderRow(payload.new as DbBinderRow);
+            useAppStore.setState((s) => {
+              const exists = s.binders.some((b) => b.id === incoming.id);
+              return {
+                binders: exists
+                  ? s.binders.map((b) => (b.id === incoming.id ? incoming : b))
+                  : [incoming, ...s.binders],
+              };
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [authMode, cloudUserId]);
 
   // Apply theme token dataset attribute
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // Global Pomodoro tick
+  // Global Pomodoro tick (timestamp-accurate even after sleep/backgrounding)
   useEffect(() => {
     if (!isTimerRunning) return;
     const id = window.setInterval(() => {

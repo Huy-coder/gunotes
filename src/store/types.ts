@@ -39,6 +39,7 @@ export interface AuthCloudSlice {
   cloudUserId: string | null;
   cloudSyncStatus: CloudSyncStatus;
   cloudError: string | null;
+  pendingOfflineCount: number;
   user: UserProfile;
   theme: ThemeId;
   defaultPaper: PaperStyle;
@@ -68,6 +69,7 @@ export interface AuthCloudSlice {
   setStudyPersona: (persona: StudyPersona) => void;
   unlockAllStickersPreview: () => void;
   resetLocalWorkspace: () => void;
+  flushPendingOfflineSync: () => Promise<void>;
 }
 
 export interface BinderSlice {
@@ -120,6 +122,9 @@ export interface NoteSlice {
         | "tags"
         | "headerStickerId"
         | "blockLinks"
+        | "inkStrokes"
+        | "isPublic"
+        | "updatedAtIso"
       >
     >
   ) => void;
@@ -149,6 +154,11 @@ export interface NoteSlice {
     blockId: string,
     direction: "up" | "down"
   ) => void;
+  reorderBlock: (
+    noteId: string,
+    fromBlockId: string,
+    toBlockId: string
+  ) => void;
   deleteBlock: (noteId: string, blockId: string) => void;
   toggleBlurMode: () => void;
   setBlurMode: (active: boolean) => void;
@@ -161,16 +171,25 @@ export interface FlashcardSlice {
   addFlashcard: (
     card: Omit<Flashcard, "id" | "dueLabel" | "isDue" | "intervalDays" | "reps">
   ) => void;
+  updateFlashcard: (
+    id: string,
+    patch: Partial<Pick<Flashcard, "front" | "back" | "tip" | "type">>
+  ) => void;
+  deleteFlashcard: (id: string) => void;
   rateFlashcard: (id: string, rating: 1 | 2 | 3 | 4) => void;
+  generateDeckFromNote: (noteId: string) => number;
+  refreshDueFlashcards: () => void;
   resetReviewDeck: () => void;
 }
 
 export interface FocusSlice {
   focusMode: FocusModeDuration;
   secondsLeft: number;
+  timerEndAt: number | null;
   isTimerRunning: boolean;
   activeBinderId: string;
   focusTasks: FocusTask[];
+  dailyStudyLog: Record<string, number>;
   ambientVolumes: {
     rain: number;
     cafe: number;
@@ -181,6 +200,7 @@ export interface FocusSlice {
   toggleTimer: () => void;
   resetTimer: () => void;
   tickTimer: () => void;
+  syncTimerFromClock: () => void;
   toggleFocusTask: (taskId: string) => void;
   addFocusTask: (label: string) => void;
   setAmbientVolume: (channel: "rain" | "cafe" | "keys", value: number) => void;

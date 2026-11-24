@@ -43,12 +43,13 @@ export function getDefaultBlockPayload(type: BlockType): {
 
 export function getBlockPlaceholder(type: BlockType): string {
   const placeholders: Record<BlockType, string> = {
-    text: "Bắt đầu viết lên trang giấy... (gõ / để chèn khối hoặc sơ đồ)",
+    text: "Bắt đầu viết lên trang giấy... (gõ / để chèn khối, ảnh hoặc sơ đồ)",
     def: "Viết định nghĩa cốt lõi bằng ngôn từ của bạn...",
     formula: "Nhập công thức $...$ hoặc bấm fx bên dưới...",
     example: "Ghi ví dụ minh họa hoặc bài tập mẫu...",
     trap: "Ghi lỗi sai hay mất điểm khi làm bài...",
     diagram: "Mô tả sơ đồ...",
+    image: "Chú thích hình ảnh...",
   };
   return placeholders[type];
 }
@@ -61,7 +62,8 @@ export interface SlashCommandItem {
   action:
     | { kind: "block"; blockType: BlockType }
     | { kind: "diagram"; diagramKind: DiagramData["kind"] }
-    | { kind: "formula" };
+    | { kind: "formula" }
+    | { kind: "image" };
 }
 
 export const SLASH_COMMANDS: SlashCommandItem[] = [
@@ -92,6 +94,13 @@ export const SLASH_COMMANDS: SlashCommandItem[] = [
     description: "Mở trình soạn công thức trực quan",
     keywords: ["fx", "latex", "katex", "math", "sigma"],
     action: { kind: "formula" },
+  },
+  {
+    id: "image",
+    label: "Chèn ảnh / Chụp bảng",
+    description: "Tải ảnh, chụp đề bài & khoanh chú thích",
+    keywords: ["anh", "img", "image", "photo", "camera", "chup"],
+    action: { kind: "image" },
   },
   {
     id: "example",

@@ -1,5 +1,6 @@
 "use client";
 
+import { isCardDueNow } from "@/lib/srs/sm2";
 import type {
   Binder,
   BinderCoverPattern,
@@ -7,6 +8,7 @@ import type {
   CornellBlock,
   Flashcard,
   FocusTask,
+  InkStroke,
   Note,
   NoteBlockLink,
   NoteFont,
@@ -114,6 +116,7 @@ export type CloudHydrateResult =
       notes: Note[];
       flashcards: Flashcard[];
       focusTasks: FocusTask[];
+      dailyStudyLog: Record<string, number>;
     }
   | { status: "schema-missing" }
   | { status: "error"; message: string };
@@ -177,9 +180,11 @@ export interface DbNoteRow {
   tags: string[];
   blocks: CornellBlock[];
   block_links?: NoteBlockLink[];
+  ink_strokes?: InkStroke[];
   summary: string;
   header_sticker_id?: string | null;
   is_pinned?: boolean;
+  is_public?: boolean;
   updated_at?: string;
 }
 
@@ -196,6 +201,7 @@ export interface DbFlashcardRow {
   due_label?: string;
   is_due?: boolean;
   due_at?: string;
+  ease_factor?: number;
   interval_days: number;
   reps: number;
 }
@@ -225,10 +231,13 @@ export function mapNoteRow(r: DbNoteRow): Note {
     tags: Array.isArray(r.tags) ? r.tags : [],
     blocks: Array.isArray(r.blocks) ? r.blocks : [],
     blockLinks: Array.isArray(r.block_links) ? r.block_links : undefined,
+    inkStrokes: Array.isArray(r.ink_strokes) ? r.ink_strokes : undefined,
     summary: r.summary ?? "",
     headerStickerId: (r.header_sticker_id as StickerId | null | undefined) ?? null,
     isPinned: Boolean(r.is_pinned),
+    isPublic: Boolean(r.is_public),
     updatedAt: rel.label,
+    updatedAtIso: r.updated_at,
     updatedMinutesAgo: rel.minutesAgo,
   };
 }
@@ -237,7 +246,7 @@ export function mapFlashcardRow(
   r: DbFlashcardRow,
   noteTitleLookup: Map<string, string>
 ): Flashcard {
-  return {
+  const draft: Flashcard = {
     id: r.id,
     binderId: r.binder_id,
     noteId: r.note_id,
@@ -247,8 +256,14 @@ export function mapFlashcardRow(
     back: r.back,
     tip: r.tip ?? undefined,
     dueLabel: r.due_label ?? "Đến hạn hôm nay",
+    dueAtIso: r.due_at,
+    easeFactor: r.ease_factor ?? 2.5,
     isDue: r.is_due ?? true,
     intervalDays: r.interval_days ?? 1,
     reps: r.reps ?? 0,
+  };
+  return {
+    ...draft,
+    isDue: isCardDueNow(draft),
   };
 }

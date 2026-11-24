@@ -1,5 +1,6 @@
 "use client";
 
+import { getOfflineQueue } from "@/lib/repository/offline-queue";
 import {
   isUuid,
   syncProfileToCloud,
@@ -25,17 +26,20 @@ export function createCloudHelpers(
   get: StoreGet
 ): CloudSyncHelpers {
   const applyCloudResult = (res: CloudSyncResult) => {
+    const pendingOfflineCount = getOfflineQueue().length;
     if (res.status === "ok") {
-      set({ cloudSyncStatus: "synced", cloudError: null });
+      set({ cloudSyncStatus: "synced", cloudError: null, pendingOfflineCount });
     } else if (res.status === "schema-missing") {
       set({
         cloudSyncStatus: "schema-missing",
+        pendingOfflineCount,
         cloudError:
           "Chưa chạy SQL Schema tạo bảng trên Supabase. Vào Cài đặt → Dữ liệu để copy SQL.",
       });
     } else {
       set({
         cloudSyncStatus: "error",
+        pendingOfflineCount,
         cloudError: res.message ?? "Lỗi đồng bộ Supabase",
       });
     }

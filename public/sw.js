@@ -1,4 +1,4 @@
-const CACHE_NAME = "gunotes-pwa-v1.2.0-r2";
+const CACHE_NAME = "gunotes-pwa-v2.0.0";
 const PRECACHE_URLS = [
   "/icons/icon-192.png",
   "/icons/icon-512.png",

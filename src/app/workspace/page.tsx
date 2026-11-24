@@ -13,7 +13,9 @@ import {
 } from "lucide-react";
 import { BinderCard } from "@/components/binder/BinderCard";
 import { AppShell } from "@/components/layout/AppShell";
+import { StudyHeatmapCard } from "@/features/workspace/StudyHeatmapCard";
 import { getPaperClass } from "@/lib/semantic-styles";
+import { isCardDueNow } from "@/lib/srs/sm2";
 import { useAppStore } from "@/store/useAppStore";
 import type { BinderCoverTone, StickerId } from "@/types/study";
 
@@ -47,7 +49,7 @@ export default function WorkspacePage() {
   const [newTone, setNewTone] = useState<BinderCoverTone>("blue");
   const [newSticker, setNewSticker] = useState<StickerId>("sparkle");
 
-  const dueTotal = flashcards.filter((f) => f.isDue).length;
+  const dueTotal = flashcards.filter((f) => isCardDueNow(f)).length;
   const recentNotes = [...notes]
     .sort((a, b) => a.updatedMinutesAgo - b.updatedMinutesAgo)
     .slice(0, 3);
@@ -213,6 +215,9 @@ export default function WorkspacePage() {
             </div>
           )}
         </section>
+
+        {/* Study Activity Heatmap & SRS Forecast */}
+        <StudyHeatmapCard />
 
         {/* Main Ring-Binder Shelf Grid */}
         <section className="mt-8">

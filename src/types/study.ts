@@ -8,7 +8,14 @@ export type BinderCoverTone = "blue" | "sage" | "sand" | "lavender" | "terracott
 
 export type BinderCoverPattern = PaperStyle;
 
-export type BlockType = "def" | "formula" | "example" | "trap" | "text" | "diagram";
+export type BlockType =
+  | "def"
+  | "formula"
+  | "example"
+  | "trap"
+  | "text"
+  | "diagram"
+  | "image";
 
 export type NoteTemplate =
   | "freeform"
@@ -126,6 +133,14 @@ export interface PlacedSticker {
 
 export type DiagramViewMode = "card" | "canvas";
 
+export interface InkStroke {
+  id: string;
+  color: string;
+  width: number;
+  /** Normalized coordinates in [0..1000] x [0..1000] relative to overlay box */
+  points: Array<[number, number]>;
+}
+
 export interface CornellBlock {
   id: string;
   cue: string;
@@ -136,6 +151,9 @@ export interface CornellBlock {
   diagram?: DiagramData;
   canvasGraph?: GraphDiagram;
   diagramViewMode?: DiagramViewMode;
+  imageUrl?: string;
+  imageCaption?: string;
+  imageStrokes?: InkStroke[];
   blurrable?: boolean;
 }
 
@@ -148,11 +166,14 @@ export interface Note {
   tags: string[];
   blocks: CornellBlock[];
   blockLinks?: NoteBlockLink[];
+  inkStrokes?: InkStroke[];
   summary: string;
   headerStickerId?: StickerId | null;
   updatedAt: string;
+  updatedAtIso?: string;
   updatedMinutesAgo: number;
   isPinned?: boolean;
+  isPublic?: boolean;
 }
 
 export interface Binder {
@@ -172,11 +193,13 @@ export interface Flashcard {
   binderId: string;
   noteId: string;
   noteTitle: string;
-  type: Exclude<BlockType, "text" | "diagram">;
+  type: Exclude<BlockType, "text" | "diagram" | "image">;
   front: string;
   back: string;
   tip?: string;
   dueLabel: string;
+  dueAtIso?: string;
+  easeFactor?: number;
   isDue: boolean;
   intervalDays: number;
   reps: number;

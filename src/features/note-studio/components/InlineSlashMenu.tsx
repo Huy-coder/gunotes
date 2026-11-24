@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { GitBranch, Sigma } from "lucide-react";
+import { GitBranch, ImagePlus, Sigma } from "lucide-react";
 import type { SlashCommandItem } from "@/features/note-studio/utils/note-studio-helpers";
 import { SEMANTIC_META } from "@/lib/semantic-styles";
 
@@ -55,6 +55,8 @@ export function InlineSlashMenu({
               />
             ) : item.action.kind === "formula" ? (
               <Sigma className="h-3.5 w-3.5 shrink-0 text-[var(--ink-primary)]" />
+            ) : item.action.kind === "image" ? (
+              <ImagePlus className="h-3.5 w-3.5 shrink-0 text-[var(--ink-primary)]" />
             ) : (
               <GitBranch className="h-3.5 w-3.5 shrink-0 text-[var(--ink-primary)]" />
             )}

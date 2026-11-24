@@ -1,6 +1,13 @@
 "use client";
 
 import {
+  enqueueOfflineMutation,
+  getOfflineQueue,
+  setOfflineQueue,
+  type QueuedMutation,
+} from "@/lib/repository/offline-queue";
+import {
+  isMissingTableError,
   isUuid,
   toCloudSyncError,
   type CloudProfilePatch,
@@ -42,7 +49,8 @@ export function syncProfileToCloud(
 
 export async function upsertBinderToCloud(
   userId: string,
-  binder: Binder
+  binder: Binder,
+  enqueueOnFail = true
 ): Promise<CloudSyncResult> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase || !isUuid(userId) || !isUuid(binder.id)) {
@@ -63,16 +71,29 @@ export async function upsertBinderToCloud(
     },
     { onConflict: "id" }
   );
-  return error ? toCloudSyncError(error) : { status: "ok" };
+  if (error) {
+    if (enqueueOnFail) {
+      enqueueOfflineMutation({ kind: "upsert-binder", binder, ts: Date.now() });
+    }
+    return toCloudSyncError(error);
+  }
+  return { status: "ok" };
 }
 
 export async function deleteBinderFromCloud(
-  binderId: string
+  binderId: string,
+  enqueueOnFail = true
 ): Promise<CloudSyncResult> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase || !isUuid(binderId)) return { status: "ok" };
   const { error } = await supabase.from("binders").delete().eq("id", binderId);
-  return error ? toCloudSyncError(error) : { status: "ok" };
+  if (error) {
+    if (enqueueOnFail) {
+      enqueueOfflineMutation({ kind: "delete-binder", binderId, ts: Date.now() });
+    }
+    return toCloudSyncError(error);
+  }
+  return { status: "ok" };
 }
 
 const noteTimers = new Map<string, number>();
@@ -80,7 +101,8 @@ const latestNotesPending = new Map<string, { userId: string; note: Note }>();
 
 export async function flushNoteToCloud(
   userId: string,
-  note: Note
+  note: Note,
+  enqueueOnFail = true
 ): Promise<CloudSyncResult> {
   const supabase = getSupabaseBrowserClient();
   if (
@@ -91,25 +113,47 @@ export async function flushNoteToCloud(
   ) {
     return { status: "error", message: "Invalid UUID for note sync" };
   }
-  const { error } = await supabase.from("notes").upsert(
+
+  const basePayload = {
+    id: note.id,
+    user_id: userId,
+    binder_id: note.binderId,
+    title: note.title,
+    template: note.template,
+    paper_style: note.paperStyle,
+    tags: note.tags,
+    blocks: note.blocks,
+    block_links: note.blockLinks ?? [],
+    summary: note.summary,
+    header_sticker_id: note.headerStickerId ?? null,
+    is_pinned: Boolean(note.isPinned),
+    updated_at: note.updatedAtIso ?? new Date().toISOString(),
+  };
+
+  let { error } = await supabase.from("notes").upsert(
     {
-      id: note.id,
-      user_id: userId,
-      binder_id: note.binderId,
-      title: note.title,
-      template: note.template,
-      paper_style: note.paperStyle,
-      tags: note.tags,
-      blocks: note.blocks,
-      block_links: note.blockLinks ?? [],
-      summary: note.summary,
-      header_sticker_id: note.headerStickerId ?? null,
-      is_pinned: Boolean(note.isPinned),
-      updated_at: new Date().toISOString(),
+      ...basePayload,
+      ink_strokes: note.inkStrokes ?? [],
+      is_public: Boolean(note.isPublic),
     },
     { onConflict: "id" }
   );
-  return error ? toCloudSyncError(error) : { status: "ok" };
+
+  // Backwards-compatible fallback when older Supabase schema hasn't added v2 columns yet
+  if (error && isMissingTableError(error)) {
+    const fallback = await supabase
+      .from("notes")
+      .upsert(basePayload, { onConflict: "id" });
+    error = fallback.error;
+  }
+
+  if (error) {
+    if (enqueueOnFail) {
+      enqueueOfflineMutation({ kind: "upsert-note", note, ts: Date.now() });
+    }
+    return toCloudSyncError(error);
+  }
+  return { status: "ok" };
 }
 
 export function upsertNoteToCloud(
@@ -134,8 +178,23 @@ export function upsertNoteToCloud(
   noteTimers.set(note.id, timer);
 }
 
+export async function flushAllPendingNotes(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const entries = Array.from(latestNotesPending.entries());
+  if (entries.length === 0) return;
+
+  for (const [noteId, entry] of entries) {
+    const t = noteTimers.get(noteId);
+    if (t) window.clearTimeout(t);
+    noteTimers.delete(noteId);
+    latestNotesPending.delete(noteId);
+    await flushNoteToCloud(entry.userId, entry.note).catch(() => {});
+  }
+}
+
 export async function deleteNoteFromCloud(
-  noteId: string
+  noteId: string,
+  enqueueOnFail = true
 ): Promise<CloudSyncResult> {
   if (typeof window !== "undefined") {
     const t = noteTimers.get(noteId);
@@ -146,12 +205,19 @@ export async function deleteNoteFromCloud(
   const supabase = getSupabaseBrowserClient();
   if (!supabase || !isUuid(noteId)) return { status: "ok" };
   const { error } = await supabase.from("notes").delete().eq("id", noteId);
-  return error ? toCloudSyncError(error) : { status: "ok" };
+  if (error) {
+    if (enqueueOnFail) {
+      enqueueOfflineMutation({ kind: "delete-note", noteId, ts: Date.now() });
+    }
+    return toCloudSyncError(error);
+  }
+  return { status: "ok" };
 }
 
 export async function upsertFlashcardToCloud(
   userId: string,
-  card: Flashcard
+  card: Flashcard,
+  enqueueOnFail = true
 ): Promise<CloudSyncResult> {
   const supabase = getSupabaseBrowserClient();
   if (
@@ -163,30 +229,64 @@ export async function upsertFlashcardToCloud(
   ) {
     return { status: "error", message: "Invalid UUID for flashcard sync" };
   }
-  const dueAt = new Date(
-    Date.now() + Math.max(0, card.intervalDays) * 86400000
-  ).toISOString();
+  const dueAt =
+    card.dueAtIso ??
+    new Date(Date.now() + Math.max(0, card.intervalDays) * 86400000).toISOString();
 
-  const { error } = await supabase.from("flashcards").upsert(
-    {
-      id: card.id,
-      user_id: userId,
-      binder_id: card.binderId,
-      note_id: card.noteId,
-      note_title: card.noteTitle,
-      block_type: card.type,
-      front: card.front,
-      back: card.back,
-      tip: card.tip ?? null,
-      due_label: card.dueLabel,
-      is_due: card.isDue,
-      due_at: dueAt,
-      interval_days: card.intervalDays,
-      reps: card.reps,
-    },
-    { onConflict: "id" }
-  );
-  return error ? toCloudSyncError(error) : { status: "ok" };
+  const baseRow = {
+    id: card.id,
+    user_id: userId,
+    binder_id: card.binderId,
+    note_id: card.noteId,
+    note_title: card.noteTitle,
+    block_type: card.type,
+    front: card.front,
+    back: card.back,
+    tip: card.tip ?? null,
+    due_label: card.dueLabel,
+    is_due: card.isDue,
+    due_at: dueAt,
+    interval_days: card.intervalDays,
+    reps: card.reps,
+  };
+
+  let { error } = await supabase
+    .from("flashcards")
+    .upsert(
+      { ...baseRow, ease_factor: card.easeFactor ?? 2.5 },
+      { onConflict: "id" }
+    );
+
+  if (error && isMissingTableError(error)) {
+    const fallback = await supabase
+      .from("flashcards")
+      .upsert(baseRow, { onConflict: "id" });
+    error = fallback.error;
+  }
+
+  if (error) {
+    if (enqueueOnFail) {
+      enqueueOfflineMutation({ kind: "upsert-flashcard", card, ts: Date.now() });
+    }
+    return toCloudSyncError(error);
+  }
+  return { status: "ok" };
+}
+
+export async function deleteFlashcardFromCloud(
+  cardId: string,
+  enqueueOnFail = true
+): Promise<CloudSyncResult> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase || !isUuid(cardId)) return { status: "ok" };
+  const { error } = await supabase.from("flashcards").delete().eq("id", cardId);
+  if (error) {
+    if (enqueueOnFail) {
+      enqueueOfflineMutation({ kind: "delete-flashcard", cardId, ts: Date.now() });
+    }
+    return toCloudSyncError(error);
+  }
+  return { status: "ok" };
 }
 
 export async function batchUpsertFlashcardsToCloud(
@@ -209,6 +309,9 @@ export async function batchUpsertFlashcardsToCloud(
       tip: c.tip ?? null,
       due_label: c.dueLabel,
       is_due: c.isDue,
+      due_at:
+        c.dueAtIso ??
+        new Date(Date.now() + Math.max(0, c.intervalDays) * 86400000).toISOString(),
       interval_days: c.intervalDays,
       reps: c.reps,
     }));
@@ -234,4 +337,42 @@ export async function logStudySessionToCloud(
     mode,
   });
   return error ? toCloudSyncError(error) : { status: "ok" };
+}
+
+export async function flushOfflineQueue(
+  userId: string
+): Promise<{ flushed: number; remaining: number }> {
+  const queue = getOfflineQueue();
+  if (queue.length === 0 || !isUuid(userId)) {
+    return { flushed: 0, remaining: queue.length };
+  }
+
+  const remaining: QueuedMutation[] = [];
+  let flushed = 0;
+
+  for (const item of queue) {
+    let res: CloudSyncResult = { status: "ok" };
+    if (item.kind === "upsert-binder") {
+      res = await upsertBinderToCloud(userId, item.binder, false);
+    } else if (item.kind === "delete-binder") {
+      res = await deleteBinderFromCloud(item.binderId, false);
+    } else if (item.kind === "upsert-note") {
+      res = await flushNoteToCloud(userId, item.note, false);
+    } else if (item.kind === "delete-note") {
+      res = await deleteNoteFromCloud(item.noteId, false);
+    } else if (item.kind === "upsert-flashcard") {
+      res = await upsertFlashcardToCloud(userId, item.card, false);
+    } else if (item.kind === "delete-flashcard") {
+      res = await deleteFlashcardFromCloud(item.cardId, false);
+    }
+
+    if (res.status === "ok") {
+      flushed += 1;
+    } else {
+      remaining.push(item);
+    }
+  }
+
+  setOfflineQueue(remaining);
+  return { flushed, remaining: remaining.length };
 }

@@ -8,12 +8,15 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
+  HelpCircle,
+  Layers,
   MoreHorizontal,
   Network,
   Palette,
   PanelLeftOpen,
   Printer,
   RotateCcw,
+  Share2,
   Timer,
 } from "lucide-react";
 import {
@@ -38,6 +41,9 @@ export function NoteStudioHeader({
   onResetReveals,
   onOpenVisualize,
   onOpenBlurting,
+  onOpenQuiz,
+  onGenerateDeck,
+  onOpenShare,
   secondsLeft,
   isTimerRunning,
   onUpdatePaper,
@@ -57,6 +63,9 @@ export function NoteStudioHeader({
   onResetReveals: () => void;
   onOpenVisualize: () => void;
   onOpenBlurting: () => void;
+  onOpenQuiz: () => void;
+  onGenerateDeck: () => void;
+  onOpenShare: () => void;
   secondsLeft: number;
   isTimerRunning: boolean;
   onUpdatePaper: (paperStyle: PaperStyle) => void;
@@ -117,7 +126,7 @@ export function NoteStudioHeader({
         </div>
 
         <div className="relative flex shrink-0 items-center gap-1.5">
-          <div className="hidden items-center rounded-full border border-[var(--border-hairline)] bg-[var(--bg-desk)] p-0.5 lg:flex">
+          <div className="hidden items-center rounded-full border border-[var(--border-hairline)] bg-[var(--bg-desk)] p-0.5 2xl:flex">
             {PAPER_STYLE_META.map((ps) => (
               <button
                 key={ps.id}
@@ -181,7 +190,7 @@ export function NoteStudioHeader({
             </button>
           )}
 
-          {/* Desktop-only secondary actions */}
+          {/* Primary desktop actions visible comfortably at 1280px+ */}
           <button
             type="button"
             onClick={onOpenBlurting}
@@ -192,9 +201,40 @@ export function NoteStudioHeader({
             <span>Xả não</span>
           </button>
 
+          <button
+            type="button"
+            onClick={onOpenQuiz}
+            title="Trắc nghiệm nhanh từ nội dung trang"
+            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap text-[var(--ink-primary)] transition hover:border-[var(--ink-muted)] xl:flex"
+          >
+            <HelpCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>Quiz</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onGenerateDeck}
+            title="Tạo bộ Flashcard tự động từ highlight & Cloze trong trang"
+            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap text-[var(--ink-primary)] transition hover:border-[var(--ink-muted)] xl:flex"
+          >
+            <Layers className="h-3.5 w-3.5 shrink-0" />
+            <span>Tạo thẻ</span>
+          </button>
+
+          {/* Extra inline actions only on very wide 2xl screens so 1280px never clips */}
+          <button
+            type="button"
+            onClick={onOpenShare}
+            title="Chia sẻ link & Xuất thẻ ảnh Studygram (.png)"
+            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium whitespace-nowrap text-[var(--ink-primary)] transition hover:border-[var(--ink-muted)] 2xl:flex"
+          >
+            <Share2 className="h-3.5 w-3.5 shrink-0" />
+            <span>Chia sẻ</span>
+          </button>
+
           <Link
             href="/focus"
-            className="hidden items-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium tabular-nums lg:flex"
+            className="hidden items-center gap-1.5 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 font-mono text-[11px] font-medium tabular-nums 2xl:flex"
             title={`Mở Phòng Tập trung (${formatTimer(secondsLeft)})`}
           >
             <Timer
@@ -211,7 +251,7 @@ export function NoteStudioHeader({
             type="button"
             onClick={() => window.print()}
             title="Xuất PDF / In khổ giấy"
-            className="hidden rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] lg:inline-flex"
+            className="hidden rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] p-1.5 text-[var(--ink-muted)] hover:text-[var(--ink-primary)] 2xl:inline-flex"
           >
             <Printer className="h-3.5 w-3.5" />
           </button>
@@ -220,14 +260,14 @@ export function NoteStudioHeader({
             type="button"
             onClick={onOpenCustomize}
             title="Độ trang & Sticker"
-            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 text-[11px] font-medium hover:border-[var(--ink-muted)] lg:flex"
+            className="hidden items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)] px-2.5 py-1.5 text-[11px] font-medium hover:border-[var(--ink-muted)] 2xl:flex"
           >
             <Palette className="h-3.5 w-3.5" />
             <span>Độ trang</span>
           </button>
 
-          {/* Compact Overflow Menu for Mobile / Tablet */}
-          <div ref={moreContainerRef} className="relative lg:hidden">
+          {/* Overflow Menu for Mobile, Tablet & 1280px Laptops */}
+          <div ref={moreContainerRef} className="relative 2xl:hidden">
             <button
               type="button"
               onClick={() => setMoreOpen((v) => !v)}
@@ -272,6 +312,39 @@ export function NoteStudioHeader({
                   >
                     <Brain className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
                     <span>Xả não 5 phút (Blurting)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onOpenQuiz();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <span>Trắc nghiệm nhanh (Quiz)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onGenerateDeck();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <Layers className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <span>Tạo bộ thẻ Flashcard</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      onOpenShare();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium hover:bg-[var(--bg-desk)]"
+                  >
+                    <Share2 className="h-3.5 w-3.5 text-[var(--ink-muted)]" />
+                    <span>Chia sẻ & Xuất ảnh (.png)</span>
                   </button>
                   <Link
                     href="/focus"

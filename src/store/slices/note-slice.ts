@@ -21,6 +21,7 @@ const BLOCK_DEFAULT_TITLE: Record<BlockType, string> = {
   trap: "BẪY HAY SAI",
   text: "GHI CHÚ",
   diagram: "SƠ ĐỒ TRỰC QUAN",
+  image: "HÌNH ẢNH",
 };
 
 export function createNoteSlice(
@@ -31,8 +32,18 @@ export function createNoteSlice(
   const { applyCloudResult, pushNoteDebounced } = helpers;
 
   const patchNoteById = (noteId: string, updater: (note: Note) => Note) => {
+    const iso = new Date().toISOString();
     set((state) => ({
-      notes: state.notes.map((n) => (n.id === noteId ? updater(n) : n)),
+      notes: state.notes.map((n) =>
+        n.id === noteId
+          ? {
+              ...updater(n),
+              updatedAt: "Vừa lưu",
+              updatedAtIso: iso,
+              updatedMinutesAgo: 0,
+            }
+          : n
+      ),
     }));
     pushNoteDebounced(noteId);
   };
@@ -53,6 +64,7 @@ export function createNoteSlice(
         tags: [],
         headerStickerId: null,
         updatedAt: "Vừa xong",
+        updatedAtIso: new Date().toISOString(),
         updatedMinutesAgo: 0,
         blocks: [
           {
@@ -293,6 +305,24 @@ export function createNoteSlice(
           nextBlocks[swapIdx],
           nextBlocks[idx],
         ];
+        return {
+          ...n,
+          blocks: nextBlocks,
+          updatedAt: "Vừa lưu",
+          updatedMinutesAgo: 0,
+        };
+      });
+    },
+
+    reorderBlock: (noteId, fromBlockId, toBlockId) => {
+      if (fromBlockId === toBlockId) return;
+      patchNoteById(noteId, (n) => {
+        const fromIdx = n.blocks.findIndex((b) => b.id === fromBlockId);
+        const toIdx = n.blocks.findIndex((b) => b.id === toBlockId);
+        if (fromIdx === -1 || toIdx === -1) return n;
+        const nextBlocks = [...n.blocks];
+        const [moved] = nextBlocks.splice(fromIdx, 1);
+        nextBlocks.splice(toIdx, 0, moved);
         return {
           ...n,
           blocks: nextBlocks,
