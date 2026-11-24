@@ -6,6 +6,8 @@ import {
   ArrowUp,
   Check,
   Link2,
+  Mic,
+  MicOff,
   Plus,
   Sigma,
   Trash2,
@@ -28,6 +30,8 @@ export function BlockFormattingBar({
   onWrapSelection,
   onOpenFormula,
   onToggleLinkPicker,
+  voiceActiveForBlock = false,
+  onToggleVoice,
   onChangeBlockType,
   onInsertBelow,
   onMove,
@@ -40,6 +44,8 @@ export function BlockFormattingBar({
   onWrapSelection: (mode: HighlightColor | "cloze") => void;
   onOpenFormula: () => void;
   onToggleLinkPicker: () => void;
+  voiceActiveForBlock?: boolean;
+  onToggleVoice?: () => void;
   onChangeBlockType: (type: BlockType) => void;
   onInsertBelow: () => void;
   onMove: (dir: "up" | "down") => void;
@@ -106,6 +112,32 @@ export function BlockFormattingBar({
           <Link2 className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
           <span className="hidden sm:inline">[[Link]]</span>
         </button>
+        {onToggleVoice && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleVoice();
+            }}
+            title="Nói Tiếng Việt (vi-VN) để điền vào khối này"
+            aria-label="Nói Tiếng Việt"
+            className={`inline-flex min-h-[34px] items-center gap-1 rounded-lg border px-2.5 py-1 font-mono text-[11px] font-semibold transition sm:min-h-[28px] sm:px-2 ${
+              voiceActiveForBlock
+                ? "border-red-600 bg-[var(--sem-trap-bg)] text-red-700"
+                : "border-[var(--border-hairline)] bg-[var(--bg-elevated)] text-[var(--ink-primary)] hover:border-[var(--ink-primary)]"
+            }`}
+          >
+            {voiceActiveForBlock ? (
+              <MicOff className="h-3.5 w-3.5 animate-pulse sm:h-3 sm:w-3" />
+            ) : (
+              <Mic className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+            )}
+            <span className="hidden sm:inline">
+              {voiceActiveForBlock ? "Dừng" : "Nói"}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Block type switcher + structural actions */}

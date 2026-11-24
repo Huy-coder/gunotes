@@ -21,7 +21,9 @@ import { PaperInkLayer } from "@/features/note-studio/components/PaperInkLayer";
 import { QuickQuizModal } from "@/features/note-studio/components/QuickQuizModal";
 import { SemanticBlockCard } from "@/features/note-studio/components/SemanticBlockCard";
 import { ShareExportModal } from "@/features/note-studio/components/ShareExportModal";
+import { VoiceDictationBar } from "@/features/note-studio/components/VoiceDictationBar";
 import { useNoteHighlighting } from "@/features/note-studio/hooks/useNoteHighlighting";
+import { useVietnameseVoiceInput } from "@/features/note-studio/hooks/useVietnameseVoiceInput";
 import {
   DIAGRAM_PRESET_META,
   getDefaultBlockPayload,
@@ -34,6 +36,7 @@ import {
   NOTE_TEMPLATE_META,
   SEMANTIC_META,
 } from "@/lib/semantic-styles";
+import { appendVietnameseTranscript } from "@/lib/speech/vietnamese-stt";
 import { getBacklinks } from "@/lib/wiki-links";
 import { useAppStore } from "@/store/useAppStore";
 import type {
@@ -147,6 +150,83 @@ export default function NoteStudioPage() {
     updateBlock,
     showToast,
   });
+
+  const {
+    isListening,
+    isTranscribing,
+    voiceBlockId,
+    interimTranscript,
+    startForBlock,
+    stopListening,
+  } = useVietnameseVoiceInput({
+    noteId,
+    onFinalTranscript: (targetBlockId, chunk) => {
+      const latestNote = useAppStore
+        .getState()
+        .notes.find((n) => n.id === noteId);
+      const blk = latestNote?.blocks.find((b) => b.id === targetBlockId);
+      if (!blk) return;
+      const nextContent = appendVietnameseTranscript(blk.content, chunk);
+      updateBlock(noteId, targetBlockId, { content: nextContent });
+    },
+    onToast: showToast,
+  });
+
+  const handleToggleVoice = useCallback(
+    (preferredBlockId?: string) => {
+      if (!note) return;
+      if (
+        (isListening || isTranscribing) &&
+        (!preferredBlockId || voiceBlockId === preferredBlockId)
+      ) {
+        stopListening();
+        return;
+      }
+      if (blurMode) toggleBlurMode();
+      setBrushMode(false);
+      setInkMode(false);
+      setSlashOpen(false);
+      setDiagramPickerOpen(false);
+      setSelectionPopup(null);
+
+      let targetId = preferredBlockId ?? editingBlockId;
+      if (!targetId) {
+        const last = note.blocks[note.blocks.length - 1];
+        if (
+          last &&
+          last.type !== "diagram" &&
+          last.type !== "image" &&
+          last.content.trim() === ""
+        ) {
+          targetId = last.id;
+        } else {
+          const created = addBlockToNote(note.id, {
+            type: "text",
+            cue: "",
+            content: "",
+          });
+          targetId = created.id;
+        }
+      }
+      setEditingBlockId(targetId, "end");
+      startForBlock(targetId);
+    },
+    [
+      note,
+      isListening,
+      isTranscribing,
+      voiceBlockId,
+      stopListening,
+      blurMode,
+      toggleBlurMode,
+      setBrushMode,
+      setSelectionPopup,
+      editingBlockId,
+      addBlockToNote,
+      setEditingBlockId,
+      startForBlock,
+    ]
+  );
 
   // Reset per-note UI only when navigating to a different note
   useEffect(() => {
@@ -752,6 +832,13 @@ export default function NoteStudioPage() {
                     isRevealed={revealedBlockIds.includes(block.id)}
                     isEditing={editingBlockId === block.id}
                     highlighted={highlightedBlockId === block.id}
+                    voiceActiveForBlock={
+                      (isListening || isTranscribing) &&
+                      voiceBlockId === block.id
+                    }
+                    voiceInterimText={
+                      voiceBlockId === block.id ? interimTranscript : ""
+                    }
                     focusCaret={editingState.caret}
                     brushMode={brushMode}
                     brushColor={brushColor}
@@ -782,6 +869,7 @@ export default function NoteStudioPage() {
                     onToggleRevealBlock={toggleRevealBlock}
                     onBrushApply={applyHighlightUpdate}
                     onBrushTapWord={handleBrushTapAtPoint}
+                    onToggleVoiceForBlock={() => handleToggleVoice(block.id)}
                     onRecordUndo={recordUndoEntry}
                     onTextareaKeyDown={handleTextareaKeyDown}
                     onWikiLinkInserted={(targetTitle) =>
@@ -851,6 +939,26 @@ export default function NoteStudioPage() {
             </div>
           )}
 
+          <VoiceDictationBar
+            isListening={isListening}
+            isTranscribing={isTranscribing}
+            interimTranscript={interimTranscript}
+            onInsertNewline={() => {
+              if (!voiceBlockId) return;
+              const latestNote = useAppStore
+                .getState()
+                .notes.find((n) => n.id === note.id);
+              const blk = latestNote?.blocks.find((b) => b.id === voiceBlockId);
+              if (!blk) return;
+              updateBlock(note.id, voiceBlockId, {
+                content: blk.content.endsWith("\n")
+                  ? blk.content
+                  : `${blk.content}\n`,
+              });
+            }}
+            onStop={stopListening}
+          />
+
           <NoteBottomToolbar
             isEditingAny={editingBlockId !== null}
             slashOpen={slashOpen}
@@ -886,6 +994,8 @@ export default function NoteStudioPage() {
                 showToast("Đã bật Bút vẽ tự do trên giấy!");
               }
             }}
+            voiceActive={isListening || isTranscribing}
+            onToggleVoice={() => handleToggleVoice()}
             highlightHistoryCount={highlightHistory.length}
             onUndoHighlight={handleUndoHighlight}
             onQuickWrite={handleClickPaperTail}

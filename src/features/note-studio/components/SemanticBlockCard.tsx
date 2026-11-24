@@ -43,6 +43,8 @@ export function SemanticBlockCard({
   isRevealed,
   isEditing,
   highlighted = false,
+  voiceActiveForBlock = false,
+  voiceInterimText = "",
   focusCaret = "end",
   brushMode,
   brushColor,
@@ -64,6 +66,7 @@ export function SemanticBlockCard({
   onToggleRevealBlock,
   onBrushApply,
   onBrushTapWord,
+  onToggleVoiceForBlock,
   onRecordUndo,
   onTextareaKeyDown,
   onWikiLinkInserted,
@@ -79,6 +82,8 @@ export function SemanticBlockCard({
   isRevealed: boolean;
   isEditing: boolean;
   highlighted?: boolean;
+  voiceActiveForBlock?: boolean;
+  voiceInterimText?: string;
   focusCaret?: "start" | "end";
   brushMode: boolean;
   brushColor: HighlightColor | "cloze" | "clear";
@@ -121,6 +126,7 @@ export function SemanticBlockCard({
     clientY: number,
     containerEl: HTMLElement
   ) => void;
+  onToggleVoiceForBlock?: () => void;
   onRecordUndo: (blockId: string, prevContent: string) => void;
   onTextareaKeyDown: (
     e: React.KeyboardEvent<HTMLTextAreaElement>,
@@ -633,6 +639,12 @@ export function SemanticBlockCard({
             </div>
           )}
 
+          {voiceActiveForBlock && voiceInterimText && (
+            <div className="no-print rounded-lg bg-[var(--sem-trap-bg)]/60 px-2.5 py-1 font-mono text-xs text-[var(--ink-muted)] italic">
+              🎙 {voiceInterimText}
+            </div>
+          )}
+
           <BlockFormattingBar
             currentType={block.type}
             isFirst={isFirst}
@@ -646,6 +658,8 @@ export function SemanticBlockCard({
                 cur === block.id ? null : block.id
               )
             }
+            voiceActiveForBlock={voiceActiveForBlock}
+            onToggleVoice={onToggleVoiceForBlock}
             onChangeBlockType={handleChangeBlockType}
             onInsertBelow={() => onInsertBlockAfter(block.id, "text")}
             onMove={(dir) => onMoveBlock(noteId, block.id, dir)}
@@ -742,6 +756,11 @@ export function SemanticBlockCard({
             </span>
           ) : (
             <HighlightText text={block.content} blurMode={blurMode} />
+          )}
+          {voiceActiveForBlock && voiceInterimText && (
+            <span className="ml-1.5 text-[var(--ink-muted)] italic">
+              {voiceInterimText}
+            </span>
           )}
         </div>
       )}

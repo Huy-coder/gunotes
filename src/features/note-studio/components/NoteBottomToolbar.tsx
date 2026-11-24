@@ -6,6 +6,8 @@ import {
   Highlighter,
   ImagePlus,
   Layers,
+  Mic,
+  MicOff,
   PenLine,
   PenTool,
   Sigma,
@@ -25,6 +27,8 @@ export function NoteBottomToolbar({
   onToggleBrushMode,
   inkMode,
   onToggleInkMode,
+  voiceActive,
+  onToggleVoice,
   highlightHistoryCount,
   onUndoHighlight,
   onQuickWrite,
@@ -43,6 +47,8 @@ export function NoteBottomToolbar({
   onToggleBrushMode: () => void;
   inkMode: boolean;
   onToggleInkMode: () => void;
+  voiceActive: boolean;
+  onToggleVoice: () => void;
   highlightHistoryCount: number;
   onUndoHighlight: () => void;
   onQuickWrite: () => void;
@@ -148,12 +154,12 @@ export function NoteBottomToolbar({
           isEditingAny ? "hidden sm:flex" : "flex"
         }`}
       >
-        <div className="paper-shadow pointer-events-auto flex items-center gap-1 rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)]/95 px-2.5 py-1.5 backdrop-blur-md sm:gap-2 sm:px-3.5">
+        <div className="paper-shadow pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-[var(--border-hairline)] bg-[var(--bg-elevated)]/95 px-2.5 py-1.5 backdrop-blur-md sm:gap-2 sm:px-3.5">
           <button
             type="button"
             onClick={onQuickWrite}
             title="Thêm dòng viết tiếp ngay lập tức"
-            className="flex items-center gap-1.5 rounded-full bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary-fg)] transition hover:opacity-90"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary-fg)] transition hover:opacity-90"
           >
             <PenLine className="h-3.5 w-3.5" />
             <span>Viết</span>
@@ -166,14 +172,34 @@ export function NoteBottomToolbar({
               setDiagramPickerOpen(false);
             }}
             title="Chèn khối ngữ nghĩa (/)"
-            className={`flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium transition ${
+            className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-1.5 text-xs font-medium transition sm:px-2.5 ${
               slashOpen
                 ? "border-[var(--ink-primary)] bg-[var(--bg-desk)] text-[var(--ink-primary)]"
                 : "border-[var(--border-hairline)] text-[var(--ink-muted)] hover:text-[var(--ink-primary)]"
             }`}
           >
             <Layers className="h-3.5 w-3.5" />
-            <span>Khối</span>
+            <span className="hidden sm:inline">Khối</span>
+          </button>
+
+          <button
+            type="button"
+            data-highlight-ui="true"
+            onClick={onToggleVoice}
+            title="Ghi chú bằng giọng nói Tiếng Việt (vi-VN)"
+            aria-label="Ghi chú giọng nói Tiếng Việt"
+            className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-1.5 text-xs font-medium transition sm:px-2.5 ${
+              voiceActive
+                ? "border-red-600 bg-[var(--sem-trap-bg)] text-red-700"
+                : "border-transparent text-[var(--ink-muted)] hover:bg-[var(--bg-desk)] hover:text-[var(--ink-primary)]"
+            }`}
+          >
+            {voiceActive ? (
+              <MicOff className="h-3.5 w-3.5 animate-pulse" />
+            ) : (
+              <Mic className="h-3.5 w-3.5" />
+            )}
+            <span className="hidden sm:inline">Giọng nói</span>
           </button>
 
           <div className="mx-0.5 hidden h-4 w-[1px] bg-[var(--border-hairline)] sm:block" />
